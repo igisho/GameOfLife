@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+
+  /* Theme variables (default: Dark) */
+  --bg: #0b0d10;
+  --text: #e8eef6;
+  --panel: #111620;
+  --panel-border: #1b2332;
+  --control: #1b2a44;
+  --control-hover: #223456;
+  --control-border: #294066;
+  --primary: #2a5bd7;
+  --primary-hover: #2a63ef;
+  --danger: #3a1b1f;
+  --danger-border: #5b2630;
+  --danger-hover: #4b2229;
+  --field: #0e1420;
+  --canvas: #0a0e15;
+  --pill-border: #23314a;
+  --kbd-border: #2b3b59;
+  --cell: #e8eef6;
+  --grid: #2b3b59;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+canvas {
+  image-rendering: pixelated;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary) 35%, transparent);
+}
