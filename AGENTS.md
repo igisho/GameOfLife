@@ -1,11 +1,10 @@
 # Agent Instructions (AGENTS.md)
 
-This repo is a single, self-contained web app in `index.html` (HTML + CSS + vanilla browser JS for Conway’s Game of Life with “noise”). There is **no package manager, build step, linter, or test runner configured**.
-
-If you introduce tooling (e.g., add `package.json`), update this file with the new commands.
+This repo is a Vite + React + TypeScript SPA for Conway’s Game of Life (with “noise”). Tailwind is configured via PostCSS, and the UI uses Radix primitives.
 
 ## Repo Layout
-- `index.html` – single-file app (styles + scripts inlined)
+- `index.html` – Vite entry (mounts `#root`)
+- `src/` – React app (game logic + UI components)
 
 ## Cursor / Copilot Rules
 - No Cursor rules found (`.cursor/rules/` or `.cursorrules` not present).
@@ -17,19 +16,20 @@ Treat any future Cursor/Copilot rule files as higher priority than this doc.
 
 ## Commands
 
+### Install
+- `npm install`
+
 ### Run (local dev)
-Serving over HTTP avoids browser file:// limitations.
-- Python: `python3 -m http.server 5173` then open `http://localhost:5173/index.html`
-- Node (if available): `npx --yes serve .` then open the printed URL
+- `npm run dev` then open the printed URL (default `http://localhost:5173`)
 
 ### Build
-- No build step; open/serve `index.html` directly.
+- `npm run build`
+
+### Preview
+- `npm run preview`
 
 ### Lint / Format
 - No lint/format tooling is configured.
-- If you add minimal formatting, prefer Prettier:
-  - Check: `npx prettier --check index.html`
-  - Fix: `npx prettier --write index.html`
 
 ### Tests
 - No automated tests are configured.
@@ -53,94 +53,24 @@ Pick a runner that supports single-file / single-name execution.
 ## Code Style Guidelines
 
 ### High-level
-- Keep the app **single-file and dependency-free** unless explicitly asked otherwise.
-- Make minimal, focused changes; avoid refactors that don’t pay rent.
+- Keep changes minimal and focused; avoid refactors that don’t pay rent.
 - Preserve Slovak UI text unless the change is explicitly about i18n.
 
-### Formatting
-- Indentation: **2 spaces** (HTML/CSS/JS).
-- JavaScript: **semicolons**.
-- JS strings: **single quotes** (`'...'`), except template literals.
-- Keep section dividers consistent: `// ----------------------------`.
-
-### HTML
-- Keep IDs stable; JS wiring relies on them.
-- Add new controls in three places:
-  - Markup block in the left panel
-  - Reference in `const el = { ... }`
-  - Event wiring in the “UI wiring” section
-
-### CSS
-- Prefer CSS variables in `:root` for themeable values.
-- Keep class naming consistent with the file (compact/lowercase, e.g. `.canvasWrap`).
-- Don’t introduce a new CSS methodology (BEM/utility) unless asked.
+### React / TypeScript
+- Prefer function components + hooks.
+- Keep simulation state and actions in `src/game/useGameOfLife.ts`.
+- Keep canvas drawing imperative inside `src/components/LifeCanvas.tsx` (do not render the grid via React DOM nodes).
 
 ### Themes
-- Add new theme variables to `THEMES` and keep variable names consistent (`--bg`, `--text`, ...).
-- `applyTheme()` should remain the single place that syncs canvas paint colors with CSS vars.
+- Keep theme CSS variables in `src/index.css`.
+- Keep theme presets + `applyTheme()` in `src/lib/themes.ts`.
+- Canvas fill/stroke colors should always come from CSS vars (`--cell`, `--grid`).
 
-### JavaScript: Imports / Modules
-- Current code uses no `import` statements and no bundler.
-- Avoid adding module-only features (ESM imports, import maps) unless the user requests a multi-file setup.
-
-### JavaScript: Structure
-- Centralize DOM lookups in `el` (no repeated `getElementById` in hot paths).
-- Centralize mutable simulation data in `state`.
-- Prefer small helpers (`clamp`, `keyOf`, `rcOf`) and guard clauses.
-- Keep render logic in `draw()`; call it intentionally (avoid redundant redraws).
-
-### JavaScript: DOM + Events
-- Prefer `addEventListener` (no inline `onclick=` attributes).
+### Events
 - Keyboard shortcuts should not trigger while typing in inputs/selects/textarea.
-- Use `e.preventDefault()` when overriding browser defaults (e.g., Space, right-click).
-- Keep event handlers small; delegate to named helpers.
-
-### JavaScript: Canvas + Drawing
-- Canvas size is derived from grid × `cellSize`; update `canvas.width/height` in `resizeCanvas()`.
-- Use `ctx.save()` / `ctx.restore()` around temporary draw state changes (alpha/line width).
-- Keep fill/stroke colors sourced from theme CSS vars (see `applyTheme()`).
-
-### Simulation / Rules
-- Keep GoL evolution in `stepOnce()`; it should:
-  - Apply noise first (if enabled), then evolve one generation.
-  - Use `Map` neighbor counts + a fresh `Set` for the next state.
-- Keep wrap-edge behavior centralized (avoid re-implementing wrap logic in multiple places).
-
-### JavaScript: Naming
-- `camelCase` for variables/functions (`noiseIntensity`, `cellFromEvent`).
-- `SCREAMING_SNAKE_CASE` for constants/patterns (`GOSPER_GUN`).
-- Prefer explicit units in names (`speedMs`, `cellSize`).
-
-### JavaScript: “Types” / Conversions
-- No TypeScript; be careful with runtime conversions.
-- Parse numeric inputs with `parseInt(..., 10)` or `Number(...)`.
-- Clamp user inputs to safe bounds (see `resizeCanvas()`).
-
-### State / Collections
-- Prefer creating a new `Set`/`Map` for “next” state instead of mutating while iterating.
-
-### Error Handling
-- Avoid throwing in UI paths.
-- Use safe fallbacks (e.g., default theme to `dark`).
-- Treat out-of-bounds paint operations as no-ops.
-- Timer lifecycle: always clear an existing interval before starting a new one (`setRunning`).
-
-### Performance
-- Avoid per-frame DOM queries; use cached `el` refs.
-- Avoid allocating in hot paths (favor reusing helpers/structures when reasonable).
-- Don’t iterate the full `rows × cols` grid unless necessary; prefer working from `state.live`.
-- Avoid calling `draw()` repeatedly inside loops; batch changes then draw once.
-- Keep timer changes centralized in `setRunning()` to prevent duplicate intervals.
-
-### Accessibility
-- Prefer explicit `<label>` text for inputs and toggles.
-- Don’t rely on color alone for state; keep the status pill text updated.
-
-### Browser Target
-- Target modern evergreen browsers; don’t add features requiring transpilation.
+- Prevent default browser actions when overriding (Space, right-click).
 
 ---
 
 ## Agent Workflow Notes
-- Before large changes, confirm the requirement to keep everything in `index.html`.
 - If you add tooling/tests, update `## Commands` and include a single-test command.
