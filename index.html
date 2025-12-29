@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="sk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Conwayova Hra života – šumenie</title>
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      /* Theme variables (default: Dark) */
+      --bg: #0b0d10;
+      --text: #e8eef6;
+      --panel: #111620;
+      --panel-border: #1b2332;
+      --control: #1b2a44;
+      --control-hover: #223456;
+      --control-border: #294066;
+      --primary: #2a5bd7;
+      --primary-hover: #2a63ef;
+      --danger: #3a1b1f;
+      --danger-border: #5b2630;
+      --danger-hover: #4b2229;
+      --field: #0e1420;
+      --canvas: #0a0e15;
+      --pill-border: #23314a;
+      --kbd-border: #2b3b59;
+      --cell: #e8eef6;
+      --grid: #2b3b59;
+    }
+    body { margin: 0; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+    .wrap { display: grid; grid-template-columns: 380px 1fr; gap: 16px; padding: 16px; height: 100%; box-sizing: border-box; }
+    .panel {
+      background: var(--panel); border: 1px solid var(--panel-border); border-radius: 14px;
+      padding: 14px; position: sticky; top: 16px; height: fit-content;
+    }
+    .panel h1 { font-size: 16px; margin: 0 0 10px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 10px 0; }
+    button, input, select, label { font-size: 14px; }
+    button {
+      background: var(--control); color: var(--text); border: 1px solid var(--control-border);
+      padding: 10px 12px; border-radius: 10px; cursor: pointer;
+    }
+    button:hover { background: var(--control-hover); }
+    button.primary { background: var(--primary); border-color: var(--primary); }
+    button.primary:hover { background: var(--primary-hover); }
+    button.danger { background: var(--danger); border-color: var(--danger-border); }
+    button.danger:hover { background: var(--danger-hover); }
+    .field {
+      display: grid; gap: 6px;
+      background: var(--field); border: 1px solid var(--panel-border); border-radius: 12px;
+      padding: 10px;
+    }
+    .field label { opacity: .9; font-size: 12px; }
+    .field input[type="range"] { width: 100%; }
+    .stat { opacity: .9; font-size: 13px; line-height: 1.4; white-space: pre-line; }
+    .hint { opacity: .7; font-size: 12px; margin-top: 10px; }
+    .canvasWrap {
+      background: var(--canvas);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 0; /* canvas má vlastný rozmer */
+      width: 100%;
+      height: 100%;
+      overflow: auto; /* horizontálny aj vertikálny scroll */
+    }
+    canvas { background: var(--canvas); border-radius: 0; display: block; }
+    .topbar { display:flex; gap:10px; align-items:center; justify-content:space-between; margin: 6px 0 12px; }
+    .pill { font-size: 12px; opacity: .85; padding: 4px 8px; border: 1px solid var(--pill-border); border-radius: 999px; background: var(--field); }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; padding: 1px 6px; border: 1px solid var(--kbd-border); border-bottom-width: 2px; border-radius: 6px; background: var(--field); }
+    @media (max-width: 960px) {
+      .wrap { grid-template-columns: 1fr; height: auto; }
+      .panel { position: relative; top: 0; }
+      .canvasWrap { height: 60vh; }
+    }
+      .panel { position: relative; top: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <div class="topbar">
+        <h1>Conwayova Hra života</h1>
+        <span class="pill" id="statusPill">Paused</span>
+      </div>
+
+      <!-- Pozastavenie / pustenie + krokovanie -->
+      <div class="row">
+        <button class="primary" id="playBtn">Play</button>
+        <button id="stepBtn">Step</button>
+      </div>
+
+      <div class="row">
+        <button class="danger" id="clearBtn">Clear</button>
+        <button id="randomBtn">Random</button>
+      </div>
+
+      <div class="row3">
+        <button id="gliderBtn">Glider</button>
+        <button id="pulsarBtn">Pulsar</button>
+        <button id="gunBtn">Gosper gun</button>
+      </div>
+
+      <div class="field">
+        <label>Rýchlosť (ms / krok): <span id="speedLabel"></span></label>
+        <input type="range" id="speed" min="10" max="400" value="80" />
+      </div>
+
+      <div class="field">
+        <label>Hustota random: <span id="densityLabel"></span></label>
+        <input type="range" id="density" min="0" max="100" value="2" />
+      </div>
+
+      <!-- Šumenie: náhodné vznikanie "plných objektov" počas behu -->
+      <div class="field">
+        <label><input type="checkbox" id="noiseEnable" checked /> Šumenie počas hry</label>
+        <label>Intenzita šumenia: <span id="noiseLabel"></span></label>
+        <input type="range" id="noise" min="0" max="100" value="10" />
+        <label>Veľkosť objektov (px buniek): <span id="blobLabel"></span></label>
+        <input type="range" id="blobSize" min="1" max="12" value="4" />
+        <label>Tvar objektu</label>
+        <select id="blobShape">
+          <option value="square">Štvorec</option>
+          <option value="circle">Kruh</option>
+        </select>
+      </div>
+
+      <!-- Nastavenie veľkosti gridu -->
+      <div class="row">
+        <div class="field">
+          <label>Riadky</label>
+          <input type="number" id="rows" min="10" max="1000" value="1000" />
+        </div>
+        <div class="field">
+          <label>Stĺpce</label>
+          <input type="number" id="cols" min="10" max="1000" value="1000" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Farebná schéma</label>
+        <select id="theme">
+          <option value="dark" selected>Dark</option>
+          <option value="light">Light</option>
+          <option value="matrix">Matrix</option>
+          <option value="solarized">Solarized</option>
+          <option value="neon">Neon</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Veľkosť bunky (px): <span id="cellSizeLabel"></span></label>
+        <input type="range" id="cellSize" min="4" max="20" value="4" />
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label><input type="checkbox" id="wrapEdges" checked /> Wrap okraje (torus)</label>
+        </div>
+        <div class="field">
+          <label><input type="checkbox" id="showGrid" checked /> Zobraziť mriežku</label>
+        </div>
+      </div>
+
+      <div class="stat" id="stats"></div>
+      <div class="hint">
+        Kreslenie: ľavé tlačidlo pridáva, pravé maže.<br/>
+        Skratky: <span class="kbd">Space</span>=Play/Pause, <span class="kbd">Enter</span>=Step, <span class="kbd">R</span>=Random, <span class="kbd">C</span>=Clear
+      </div>
+    </div>
+
+    <div class="canvasWrap">
+      <canvas id="canvas"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const el = {
+      playBtn: document.getElementById('playBtn'),
+      stepBtn: document.getElementById('stepBtn'),
+      clearBtn: document.getElementById('clearBtn'),
+      randomBtn: document.getElementById('randomBtn'),
+      gliderBtn: document.getElementById('gliderBtn'),
+      pulsarBtn: document.getElementById('pulsarBtn'),
+      gunBtn: document.getElementById('gunBtn'),
+      speed: document.getElementById('speed'),
+      speedLabel: document.getElementById('speedLabel'),
+      density: document.getElementById('density'),
+      densityLabel: document.getElementById('densityLabel'),
+      rows: document.getElementById('rows'),
+      cols: document.getElementById('cols'),
+      cellSize: document.getElementById('cellSize'),
+      cellSizeLabel: document.getElementById('cellSizeLabel'),
+      wrapEdges: document.getElementById('wrapEdges'),
+      showGrid: document.getElementById('showGrid'),
+      stats: document.getElementById('stats'),
+      statusPill: document.getElementById('statusPill'),
+
+      noiseEnable: document.getElementById('noiseEnable'),
+      noise: document.getElementById('noise'),
+      noiseLabel: document.getElementById('noiseLabel'),
+      blobSize: document.getElementById('blobSize'),
+      blobLabel: document.getElementById('blobLabel'),
+      blobShape: document.getElementById('blobShape'),
+      theme: document.getElementById('theme'),
+    };
+
+    const THEMES = {
+      dark: {
+        '--bg': '#0b0d10', '--text': '#e8eef6', '--panel': '#111620', '--panel-border': '#1b2332',
+        '--control': '#1b2a44', '--control-hover': '#223456', '--control-border': '#294066',
+        '--primary': '#2a5bd7', '--primary-hover': '#2a63ef',
+        '--danger': '#3a1b1f', '--danger-border': '#5b2630', '--danger-hover': '#4b2229',
+        '--field': '#0e1420', '--canvas': '#0a0e15', '--pill-border': '#23314a', '--kbd-border': '#2b3b59',
+        '--cell': '#e8eef6', '--grid': '#2b3b59'
+      },
+      light: {
+        '--bg': '#f6f7fb', '--text': '#0b1220', '--panel': '#ffffff', '--panel-border': '#d6dbea',
+        '--control': '#eef1fb', '--control-hover': '#e2e8fb', '--control-border': '#cfd7f4',
+        '--primary': '#2a5bd7', '--primary-hover': '#214fcc',
+        '--danger': '#ffd7dc', '--danger-border': '#ffb8c2', '--danger-hover': '#ffc4cc',
+        '--field': '#f3f5ff', '--canvas': '#ffffff', '--pill-border': '#c8d0ea', '--kbd-border': '#9aa8d2',
+        '--cell': '#0b1220', '--grid': '#c5cbe0'
+      },
+      matrix: {
+        '--bg': '#050a06', '--text': '#c7ffd6', '--panel': '#07110a', '--panel-border': '#0f2a17',
+        '--control': '#0a1b10', '--control-hover': '#0e2a18', '--control-border': '#164a2a',
+        '--primary': '#19b35a', '--primary-hover': '#1ed066',
+        '--danger': '#2a0b12', '--danger-border': '#5a1a2a', '--danger-hover': '#3a0f18',
+        '--field': '#06140c', '--canvas': '#030804', '--pill-border': '#1a5a33', '--kbd-border': '#1a5a33',
+        '--cell': '#35ff7a', '--grid': '#0f3b21'
+      },
+      solarized: {
+        '--bg': '#002b36', '--text': '#eee8d5', '--panel': '#073642', '--panel-border': '#0b4a58',
+        '--control': '#0a3b49', '--control-hover': '#0f4a5b', '--control-border': '#1b5663',
+        '--primary': '#268bd2', '--primary-hover': '#2aa3f4',
+        '--danger': '#5b1b1b', '--danger-border': '#7a2a2a', '--danger-hover': '#6a2020',
+        '--field': '#06313b', '--canvas': '#00212b', '--pill-border': '#1b5663', '--kbd-border': '#1b5663',
+        '--cell': '#b8f3ff', '--grid': '#0b4a58'
+      },
+      neon: {
+        '--bg': '#070512', '--text': '#f2efff', '--panel': '#110a2a', '--panel-border': '#2a1b5a',
+        '--control': '#1a0f3d', '--control-hover': '#23124f', '--control-border': '#3a2a7a',
+        '--primary': '#ff4fd8', '--primary-hover': '#ff74e3',
+        '--danger': '#2a0b1f', '--danger-border': '#5a1b45', '--danger-hover': '#3a0f2b',
+        '--field': '#130c2e', '--canvas': '#060410', '--pill-border': '#3a2a7a', '--kbd-border': '#3a2a7a',
+        '--cell': '#7cf7ff', '--grid': '#2a1b5a'
+      },
+    };
+
+    function applyTheme(name) {
+      const theme = THEMES[name] || THEMES.dark;
+      for (const [k, v] of Object.entries(theme)) {
+        document.documentElement.style.setProperty(k, v);
+      }
+      // Keep canvas paint colors synced with theme variables
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--cell').trim();
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
+      draw();
+    }
+
+    let state = {
+      rows: parseInt(el.rows.value, 10),
+      cols: parseInt(el.cols.value, 10),
+      cellSize: parseInt(el.cellSize.value, 10),
+      wrap: el.wrapEdges.checked,
+      showGrid: el.showGrid.checked,
+      generation: 0,
+      running: false,
+      timer: null,
+      speedMs: parseInt(el.speed.value, 10),
+      density: parseInt(el.density.value, 10) / 100,
+      live: new Set(), // key = r*cols + c
+
+      // šumenie
+      noiseEnabled: el.noiseEnable.checked,
+      noiseIntensity: parseInt(el.noise.value, 10) / 100, // 0..1
+      blobSize: parseInt(el.blobSize.value, 10),          // v bunkách
+      blobShape: el.blobShape.value,                     // square|circle
+    };
+
+    function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+    function keyOf(r, c) { return r * state.cols + c; }
+    function rcOf(key) { return [Math.floor(key / state.cols), key % state.cols]; }
+
+    function resizeCanvas() {
+      state.rows = clamp(parseInt(el.rows.value, 10) || 1000, 10, 1000);
+      state.cols = clamp(parseInt(el.cols.value, 10) || 1000, 10, 1000);
+      state.cellSize = clamp(parseInt(el.cellSize.value, 10) || 4, 4, 20);
+
+      // zachovaj bunky v rámci nového gridu
+      const next = new Set();
+      for (const k of state.live) {
+        const [r, c] = rcOf(k);
+        if (r >= 0 && r < state.rows && c >= 0 && c < state.cols) next.add(keyOf(r, c));
+      }
+      state.live = next;
+
+      canvas.width = state.cols * state.cellSize;
+      canvas.height = state.rows * state.cellSize;
+      draw();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // živé bunky
+      for (const k of state.live) {
+        const [r, c] = rcOf(k);
+        const x = c * state.cellSize;
+        const y = r * state.cellSize;
+        ctx.fillRect(x, y, state.cellSize, state.cellSize);
+      }
+
+      // mriežka
+      if (state.showGrid) {
+        ctx.save();
+        ctx.globalAlpha = 0.18;
+        ctx.lineWidth = 1;
+
+        for (let c = 0; c <= state.cols; c++) {
+          const x = c * state.cellSize + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, canvas.height);
+          ctx.stroke();
+        }
+        for (let r = 0; r <= state.rows; r++) {
+          const y = r * state.cellSize + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(canvas.width, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      updateStats();
+    }
+
+    function updateStats() {
+      el.stats.textContent =
+        `Generácia: ${state.generation}\nŽivých: ${state.live.size}\nRozmer: ${state.rows} × ${state.cols}`;
+      el.statusPill.textContent = state.running ? 'Running' : 'Paused';
+      el.playBtn.textContent = state.running ? 'Pause' : 'Play';
+      el.speedLabel.textContent = `${state.speedMs}`;
+      el.densityLabel.textContent = `${Math.round(state.density * 100)}%`;
+      el.cellSizeLabel.textContent = `${state.cellSize}`;
+      el.noiseLabel.textContent = `${Math.round(state.noiseIntensity * 100)}%`;
+      el.blobLabel.textContent = `${state.blobSize}`;
+    }
+
+    // ----------------------------
+    // Šumenie: náhodné vznikanie plných objektov
+    // ----------------------------
+    function applyNoise() {
+      if (!state.noiseEnabled) return;
+      const p = state.noiseIntensity; // 0..1
+      if (p <= 0) return;
+
+      // Celkové množstvo „udalostí“ za krok škáluj podľa intenzity a plochy.
+      // Pri 100% typicky 1–4 objekty za krok (pri bežnom gride).
+      const area = state.rows * state.cols;
+      const base = area / 8000; // normalizácia (60x100 ~ 0.75)
+      const blobs = Math.max(0, Math.floor((p * 4) * base + (Math.random() < p * 0.5 ? 1 : 0)));
+
+      // + trochu "salt & pepper" buniek
+      const speckles = Math.floor(p * 10 * base);
+
+      for (let i = 0; i < speckles; i++) {
+        const r = Math.floor(Math.random() * state.rows);
+        const c = Math.floor(Math.random() * state.cols);
+        state.live.add(keyOf(r, c));
+      }
+
+      for (let i = 0; i < blobs; i++) {
+        // pravdepodobnosť, či sa blob vôbec zrodí v tomto kroku
+        if (Math.random() > p) continue;
+
+        const r0 = Math.floor(Math.random() * state.rows);
+        const c0 = Math.floor(Math.random() * state.cols);
+        const size = clamp(state.blobSize, 1, 20);
+
+        if (state.blobShape === 'circle') {
+          const rad = size;
+          for (let dr = -rad; dr <= rad; dr++) {
+            for (let dc = -rad; dc <= rad; dc++) {
+              if (dr*dr + dc*dc > rad*rad) continue;
+              addLive(r0 + dr, c0 + dc);
+            }
+          }
+        } else {
+          for (let dr = 0; dr < size; dr++) {
+            for (let dc = 0; dc < size; dc++) {
+              addLive(r0 + dr, c0 + dc);
+            }
+          }
+        }
+      }
+    }
+
+    function addLive(r, c) {
+      if (state.wrap) {
+        r = (r + state.rows) % state.rows;
+        c = (c + state.cols) % state.cols;
+      } else {
+        if (r < 0 || r >= state.rows || c < 0 || c >= state.cols) return;
+      }
+      state.live.add(keyOf(r, c));
+    }
+
+    // ----------------------------
+    // Pravidlá Game of Life
+    // ----------------------------
+    function stepOnce() {
+      // najprv šumenie (vznik objektov), potom evolúcia
+      applyNoise();
+
+      const counts = new Map();
+
+      const addCount = (r, c) => {
+        if (state.wrap) {
+          r = (r + state.rows) % state.rows;
+          c = (c + state.cols) % state.cols;
+        } else {
+          if (r < 0 || r >= state.rows || c < 0 || c >= state.cols) return;
+        }
+        const k = keyOf(r, c);
+        counts.set(k, (counts.get(k) || 0) + 1);
+      };
+
+      for (const k of state.live) {
+        const [r, c] = rcOf(k);
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            addCount(r + dr, c + dc);
+          }
+        }
+      }
+
+      const next = new Set();
+      for (const [k, n] of counts.entries()) {
+        const alive = state.live.has(k);
+        if (alive) {
+          if (n === 2 || n === 3) next.add(k);
+        } else {
+          if (n === 3) next.add(k);
+        }
+      }
+
+      state.live = next;
+      state.generation += 1;
+      draw();
+    }
+
+    function setRunning(on) {
+      state.running = on;
+      if (state.timer) {
+        clearInterval(state.timer);
+        state.timer = null;
+      }
+      if (state.running) {
+        state.timer = setInterval(stepOnce, state.speedMs);
+      }
+      updateStats();
+    }
+
+    function clearAll() {
+      state.live.clear();
+      state.generation = 0;
+      draw();
+    }
+
+    function randomize() {
+      state.density = parseInt(el.density.value, 10) / 100;
+      const next = new Set();
+      for (let r = 0; r < state.rows; r++) {
+        for (let c = 0; c < state.cols; c++) {
+          if (Math.random() < state.density) next.add(keyOf(r, c));
+        }
+      }
+      state.live = next;
+      state.generation = 0;
+      draw();
+    }
+
+    function placePattern(pattern, top, left) {
+      for (let pr = 0; pr < pattern.length; pr++) {
+        const line = pattern[pr];
+        for (let pc = 0; pc < line.length; pc++) {
+          if (line[pc] !== '#') continue;
+          addLive(top + pr, left + pc);
+        }
+      }
+      draw();
+    }
+
+    // Patterns
+    const GLIDER = ['.#.','..#','###'];
+    const PULSAR = [
+      '..###...###..',
+      '.............',
+      '#....#.#....#',
+      '#....#.#....#',
+      '#....#.#....#',
+      '..###...###..',
+      '.............',
+      '..###...###..',
+      '#....#.#....#',
+      '#....#.#....#',
+      '#....#.#....#',
+      '.............',
+      '..###...###..',
+    ];
+    const GOSPER_GUN = [
+      '........................#...........',
+      '......................#.#...........',
+      '............##......##............##',
+      '...........#...#....##............##',
+      '##........#.....#...##..............',
+      '##........#...#.##....#.#...........',
+      '..........#.....#.......#...........',
+      '...........#...#....................',
+      '............##......................',
+    ];
+
+    function centerPlace(pattern) {
+      const h = pattern.length;
+      const w = Math.max(...pattern.map(s => s.length));
+      const top = Math.floor((state.rows - h) / 2);
+      const left = Math.floor((state.cols - w) / 2);
+      placePattern(pattern, top, left);
+    }
+
+    // ----------------------------
+    // Mouse painting
+    // ----------------------------
+    let painting = false;
+    let paintMode = 'add';
+
+    function cellFromEvent(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const c = Math.floor(x / state.cellSize);
+      const r = Math.floor(y / state.cellSize);
+      return [r, c];
+    }
+
+    function applyPaint(r, c) {
+      if (r < 0 || r >= state.rows || c < 0 || c >= state.cols) return;
+      const k = keyOf(r, c);
+      if (paintMode === 'add') state.live.add(k);
+      else state.live.delete(k);
+      draw();
+    }
+
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    canvas.addEventListener('mousedown', (e) => {
+      painting = true;
+      paintMode = (e.button === 2) ? 'erase' : 'add';
+      const [r, c] = cellFromEvent(e);
+      applyPaint(r, c);
+    });
+
+    window.addEventListener('mouseup', () => { painting = false; });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!painting) return;
+      const [r, c] = cellFromEvent(e);
+      applyPaint(r, c);
+    });
+
+    // ----------------------------
+    // UI wiring
+    // ----------------------------
+    el.playBtn.addEventListener('click', () => setRunning(!state.running));
+    el.stepBtn.addEventListener('click', () => { if (!state.running) stepOnce(); });
+    el.clearBtn.addEventListener('click', () => clearAll());
+    el.randomBtn.addEventListener('click', () => randomize());
+
+    el.gliderBtn.addEventListener('click', () => centerPlace(GLIDER));
+    el.pulsarBtn.addEventListener('click', () => centerPlace(PULSAR));
+    el.gunBtn.addEventListener('click', () => centerPlace(GOSPER_GUN));
+
+    el.speed.addEventListener('input', () => {
+      state.speedMs = parseInt(el.speed.value, 10);
+      if (state.running) setRunning(true); // reštart intervalu
+      updateStats();
+    });
+
+    el.density.addEventListener('input', () => {
+      state.density = parseInt(el.density.value, 10) / 100;
+      updateStats();
+    });
+
+    el.wrapEdges.addEventListener('change', () => { state.wrap = el.wrapEdges.checked; updateStats(); });
+    el.showGrid.addEventListener('change', () => { state.showGrid = el.showGrid.checked; draw(); });
+
+    el.rows.addEventListener('change', () => resizeCanvas());
+    el.cols.addEventListener('change', () => resizeCanvas());
+    el.cellSize.addEventListener('input', () => resizeCanvas());
+
+    // šumenie UI
+    el.noiseEnable.addEventListener('change', () => {
+      state.noiseEnabled = el.noiseEnable.checked;
+      updateStats();
+    });
+    el.noise.addEventListener('input', () => {
+      state.noiseIntensity = parseInt(el.noise.value, 10) / 100;
+      updateStats();
+    });
+    el.blobSize.addEventListener('input', () => {
+      state.blobSize = parseInt(el.blobSize.value, 10);
+      updateStats();
+    });
+    el.blobShape.addEventListener('change', () => {
+      state.blobShape = el.blobShape.value;
+      updateStats();
+    });
+
+    // farebná schéma
+    el.theme.addEventListener('change', () => {
+      applyTheme(el.theme.value);
+    });
+
+    // Keyboard shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
+      if (e.code === 'Space') { e.preventDefault(); setRunning(!state.running); }
+      if (e.code === 'Enter') { e.preventDefault(); if (!state.running) stepOnce(); }
+      if (e.key.toLowerCase() === 'r') randomize();
+      if (e.key.toLowerCase() === 'c') clearAll();
+    });
+
+    // Init
+    resizeCanvas();
+    applyTheme(el.theme.value);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--cell').trim();
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim();
+    updateStats();
+    draw();
+  </script>
+</body>
+</html>
