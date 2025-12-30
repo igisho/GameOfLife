@@ -103,7 +103,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
     annihilationBurst: 0.25,
 
     // Lake noise (new background lake agitation)
-    lakeNoiseEnabled: true,
+    lakeNoiseEnabled: false,
     lakeNoiseIntensity: 0.04,
     lakeBlobSize: 4,
     lakeBlobShape: 'circle',
@@ -413,8 +413,8 @@ export function useGameOfLife(): UseGameOfLifeResult {
     const next: GameSettings = {
       ...prev,
       ...patch,
-      rows: clamp(Number(patch.rows ?? prev.rows), 10, 1000),
-      cols: clamp(Number(patch.cols ?? prev.cols), 10, 1000),
+      rows: clamp(Number(patch.rows ?? prev.rows), 500, 10000),
+      cols: clamp(Number(patch.cols ?? prev.cols), 500, 10000),
       cellSize: clamp(Number(patch.cellSize ?? prev.cellSize), 4, 20),
       speedMs: clamp(Number(patch.speedMs ?? prev.speedMs), 10, 400),
       density: clamp(Number(patch.density ?? prev.density), 0, 1),

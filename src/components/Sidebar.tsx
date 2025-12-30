@@ -104,41 +104,7 @@ function LabeledSlider({
   );
 }
 
-function NumberField({
-  label,
-  help,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  label: string;
-  help?: string;
-  value: number;
-  min: number;
-  max: number;
-  onChange: (value: number) => void;
-}) {
-  const [helpOpen, setHelpOpen] = useState(false);
 
-  return (
-    <Card>
-      <div className="flex items-center justify-between gap-2">
-        <label className="block text-xs font-medium opacity-90">{label}</label>
-        {help ? <HelpButton open={helpOpen} onToggle={() => setHelpOpen((v) => !v)} /> : null}
-      </div>
-      {help ? <HelpPanel open={helpOpen}>{help}</HelpPanel> : null}
-      <input
-        className="mt-2 h-10 w-full rounded-xl border border-[var(--panel-border)] bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--primary)]"
-        type="number"
-        value={value}
-        min={min}
-        max={max}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-    </Card>
-  );
-}
 
 type Props = {
   game: UseGameOfLifeResult;
@@ -748,27 +714,25 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
             </Card>
           </div>
 
-          <div className="space-y-2">
-            <SectionTitle>Grid</SectionTitle>
-            <div className="grid grid-cols-2 gap-2">
-              <NumberField
-                label="Riadky"
-                help="Veľkosť mriežky v smere Y. Vyššie = viac detailu, viac výpočtu."
-                value={game.settings.rows}
-                min={10}
-                max={1000}
-                onChange={(v) => game.setRows(v)}
-              />
-              <NumberField
-                label="Stĺpce"
-                help="Veľkosť mriežky v smere X. Vyššie = viac detailu, viac výpočtu."
-                value={game.settings.cols}
-                min={10}
-                max={1000}
-                onChange={(v) => game.setCols(v)}
-              />
-            </div>
-            <LabeledSlider
+           <div className="space-y-2">
+             <SectionTitle>Grid</SectionTitle>
+             <LabeledSlider
+               label={
+                 <>
+                   Rozmer mriežky (1:1): <span className="font-semibold">{Math.min(game.settings.rows, game.settings.cols)}</span>
+                 </>
+               }
+               help="Nastaví počet riadkov aj stĺpcov naraz (štvorcová mriežka). Vyššie = viac detailu, ale výrazne viac výpočtu a pamäte."
+               value={Math.min(game.settings.rows, game.settings.cols)}
+               min={500}
+               max={10000}
+               step={100}
+               onChange={(v) => {
+                 game.setRows(v);
+                 game.setCols(v);
+               }}
+             />
+             <LabeledSlider
               label={
                 <>
                   Veľkosť bunky (px): <span className="font-semibold">{game.settings.cellSize}</span>
@@ -833,12 +797,7 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
             </Card>
           </div>
 
-          <div className="space-y-2">
-            <SectionTitle>Rozmer</SectionTitle>
-            <div className="text-sm leading-5 opacity-90">{`${game.settings.rows} × ${game.settings.cols}`}</div>
-          </div>
-
-          <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3 text-xs opacity-80">
+           <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3 text-xs opacity-80">
             <div>Kreslenie: ľavé tlačidlo pridáva, pravé maže.</div>
             <div className="mt-2">
               Skratky:
