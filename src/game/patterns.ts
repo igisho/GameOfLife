@@ -1,5 +1,21 @@
 export const GLIDER = ['.#.', '..#', '###'];
 
+// Classic oscillators (good for quick start).
+export const BLINKER = ['###'];
+
+// Custom start shapes (as requested).
+// 2.:  OO
+//      .O
+export const START_L3 = ['##', '.#'];
+
+// 3.:  OO
+//       .OO
+export const START_SHIFTED_2X2 = ['##', '.##'];
+
+export const TOAD = ['.###', '###.'];
+
+export const BEACON = ['##..', '##..', '..##', '..##'];
+
 export const PULSAR = [
   '..###...###..',
   '.............',

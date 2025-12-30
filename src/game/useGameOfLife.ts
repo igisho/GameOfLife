@@ -15,6 +15,22 @@ function rcOf(cols: number, key: number) {
   return [r, c] as const;
 }
 
+function parseAsciiPattern(pattern: string[]) {
+  const height = pattern.length;
+  let width = 0;
+  for (const row of pattern) width = Math.max(width, row.length);
+
+  const cells: Array<[number, number]> = [];
+  for (let r = 0; r < height; r++) {
+    const row = pattern[r] ?? '';
+    for (let c = 0; c < row.length; c++) {
+      if (row[c] === '#') cells.push([r, c]);
+    }
+  }
+
+  return { width, height, cells };
+}
+
 function annihilateOverlap(a: Set<number>, b: Set<number>, events?: number[]) {
   if (a.size === 0 || b.size === 0) return;
   const [small, big] = a.size <= b.size ? [a, b] : [b, a];
@@ -77,6 +93,8 @@ export type UseGameOfLifeResult = {
   setLakeNoiseIntensityPercent: (noisePercent: number) => void;
   setLakeBlobSize: (blobSize: number) => void;
   setLakeBlobShape: (shape: GameSettings['lakeBlobShape']) => void;
+
+  startWithPattern: (pattern: string[]) => void;
 };
 
 export function useGameOfLife(): UseGameOfLifeResult {
@@ -407,6 +425,22 @@ export function useGameOfLife(): UseGameOfLifeResult {
     [bumpDraw, recordAnnihilations]
   );
 
+  const startWithPattern = useCallback(
+    (pattern: string[]) => {
+      const s = settingsRef.current;
+      const { width, height, cells } = parseAsciiPattern(pattern);
+      if (cells.length === 0) return;
+
+      clearAll();
+
+      const top = Math.floor(s.rows / 2 - height / 2);
+      const left = Math.floor(s.cols / 2 - width / 2);
+      nucleateCells(cells.map(([r, c]) => [top + r, left + c] as [number, number]));
+      setRunning(true);
+    },
+    [clearAll, nucleateCells, setRunning]
+  );
+
   const updateSettings = useCallback((patch: Partial<GameSettings>) => {
     const prev = settingsRef.current;
 
@@ -528,6 +562,8 @@ export function useGameOfLife(): UseGameOfLifeResult {
       setLakeBlobSize: (blobSize) => updateSettings({ lakeBlobSize: blobSize }),
       setLakeBlobShape: (shape) => updateSettings({ lakeBlobShape: shape }),
 
+      startWithPattern,
+
       setMediumMemoryRatePercent: (percent) => updateSettings({ mediumMemoryRate: clamp(percent / 100, 0, 0.3) }),
       setMediumMemoryCoupling: (value) => updateSettings({ mediumMemoryCoupling: value }),
       setMediumNonlinearity: (value) => updateSettings({ mediumNonlinearity: value }),
@@ -552,6 +588,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
       stepOnce,
       stepPrev,
       toggleRunning,
+      startWithPattern,
       updateSettings,
     ]
   );

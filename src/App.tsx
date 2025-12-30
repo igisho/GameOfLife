@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 function formatCount(n: number) {
   const v = Math.max(0, Math.floor(Number.isFinite(n) ? n : 0));
@@ -32,8 +32,10 @@ function formatSigned(x: number) {
 }
 import LifeCanvas from './components/LifeCanvas';
 import Sidebar from './components/Sidebar';
+import StartOverlay from './components/StartOverlay';
 import Button from './components/ui/Button';
 import { useGameOfLife } from './game/useGameOfLife';
+import { BLINKER, START_L3, START_SHIFTED_2X2 } from './game/patterns';
 import { cn } from './lib/cn';
 import { applyTheme, type ThemeName } from './lib/themes';
 
@@ -47,7 +49,10 @@ function isTypingTarget(target: EventTarget | null) {
 export default function App() {
   const game = useGameOfLife();
   const [theme, setTheme] = useState<ThemeName>('dark');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [startOverlayOpen, setStartOverlayOpen] = useState(true);
+
+  const canvasScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [mediumSeries, setMediumSeries] = useState<number[]>(() => Array.from({ length: 64 }, () => 0));
   const [liveSeries, setLiveSeries] = useState<number[]>(() => Array.from({ length: 64 }, () => 0));
@@ -176,6 +181,7 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (startOverlayOpen) return;
       if (isTypingTarget(e.target)) return;
 
       if (e.code === 'Escape') {
@@ -200,11 +206,55 @@ export default function App() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [game]);
+  }, [game, startOverlayOpen]);
+
+  const startOptions = useMemo(
+    () => [
+      { id: 'blinker', title: 'OOO', subtitle: '3 v rade', pattern: BLINKER },
+      { id: 'l3', title: 'L', subtitle: 'OO / .O', pattern: START_L3 },
+      { id: 'shifted', title: 'Dvojblok', subtitle: 'OO / .OO', pattern: START_SHIFTED_2X2 },
+    ],
+    []
+  );
+
+  const centerCanvasScroll = useCallback(() => {
+    const el = canvasScrollRef.current;
+    if (!el) return;
+
+    const contentW = game.settings.cols * game.settings.cellSize;
+    const contentH = game.settings.rows * game.settings.cellSize;
+
+    const left = Math.max(0, Math.floor(contentW / 2 - el.clientWidth / 2));
+    const top = Math.max(0, Math.floor(contentH / 2 - el.clientHeight / 2));
+
+    el.scrollTo({ left, top, behavior: 'smooth' });
+  }, [game.settings.cellSize, game.settings.cols, game.settings.rows]);
+
+  const onSelectStartPattern = useCallback(
+    (id: string) => {
+      const opt = startOptions.find((o) => o.id === id);
+      if (!opt) return;
+
+      setStartOverlayOpen(false);
+      setSidebarOpen(false);
+
+      game.startWithPattern(opt.pattern);
+
+      // Scroll after the DOM has a chance to paint.
+      window.requestAnimationFrame(() => centerCanvasScroll());
+    },
+    [centerCanvasScroll, game, startOptions]
+  );
+
+  const onAdvancedStart = useCallback(() => {
+    setStartOverlayOpen(false);
+    setSidebarOpen(true);
+  }, []);
 
   return (
     <div className="relative h-full min-h-0 p-4">
-      {!sidebarOpen ? (
+       {!sidebarOpen && !startOverlayOpen ? (
+
         <div className="absolute left-6 top-6 z-40">
           <Button
             className="h-10 w-10 rounded-full p-0"
@@ -372,8 +422,9 @@ export default function App() {
                </div>
              </div>
 
-            <div className="h-full overflow-auto">
-                <LifeCanvas
+             <div ref={canvasScrollRef} className="h-full overflow-auto">
+                 <LifeCanvas
+
                   settings={game.settings}
                   liveRef={game.liveRef}
                   antiLiveRef={game.antiLiveRef}
@@ -389,10 +440,19 @@ export default function App() {
                 onNucleateCells={game.nucleateCells}
                 onNucleateAntiCells={game.nucleateAntiCells}
                 onMediumAvgAmplitude={onMediumAvgAmplitude}
-              />
-            </div>
-          </div>
-        </main>
+               />
+
+             </div>
+
+             <StartOverlay
+               open={startOverlayOpen}
+               options={startOptions}
+               onSelect={onSelectStartPattern}
+               onAdvancedStart={onAdvancedStart}
+             />
+           </div>
+         </main>
+
       </div>
     </div>
   );
