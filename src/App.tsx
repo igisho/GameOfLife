@@ -313,11 +313,33 @@ export default function App() {
          <main className={cn('h-full min-h-0 min-w-0 flex-1', sidebarOpen ? 'hidden md:block' : '')}>
 
             <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--canvas)] shadow-lg [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)]">
-              <div className="pointer-events-none absolute bottom-4 left-4 z-10">
-                <span className="inline-flex rounded-full border border-[var(--pill-border)] bg-[var(--field)] px-2 py-1 text-xs font-medium opacity-90">
-                  {game.running ? 'Running' : 'Paused'}
-                </span>
-              </div>
+               <div className="pointer-events-none absolute bottom-4 left-4 z-10">
+                 <span className="inline-flex rounded-full border border-[var(--pill-border)] bg-[var(--field)] px-2 py-1 text-xs font-medium opacity-90">
+                   {game.running ? 'Running' : 'Paused'}
+                 </span>
+               </div>
+
+               {!sidebarOpen && !startOverlayOpen ? (
+                 <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2">
+                   <Button
+                     className="h-12 w-12 rounded-full border border-[var(--pill-border)] p-0 text-white shadow-lg hover:bg-black/50 [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)]"
+                     style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 82%, transparent)' }}
+                     onClick={() => game.toggleRunning()}
+                     aria-label={game.running ? 'Pause' : 'Play'}
+                   >
+                     {game.running ? (
+                       <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden="true">
+                         <path d="M7 6h3v12H7V6zm7 0h3v12h-3V6z" fill="currentColor" />
+                       </svg>
+                     ) : (
+                       <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden="true">
+                         <path d="M8 5v14l12-7L8 5z" fill="currentColor" />
+                       </svg>
+                     )}
+                   </Button>
+                 </div>
+               ) : null}
+
 
               <div className="pointer-events-none absolute right-4 top-4 z-10 space-y-2">
                <div
