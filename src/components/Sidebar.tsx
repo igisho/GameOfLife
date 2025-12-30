@@ -3,6 +3,7 @@ import Button from './ui/Button';
 import Checkbox from './ui/Checkbox';
 import ScrollArea from './ui/ScrollArea';
 import Slider from './ui/Slider';
+import Tooltip from './ui/Tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/Select';
 import type { ThemeName } from '../lib/themes';
 import type { UseGameOfLifeResult } from '../game/useGameOfLife';
@@ -10,6 +11,8 @@ import type { UseGameOfLifeResult } from '../game/useGameOfLife';
 function SectionTitle({ children }: { children: string }) {
   return <div className="text-xs font-semibold uppercase tracking-wide opacity-70">{children}</div>;
 }
+
+const CONTROL_ICON = 'h-5 w-5';
 
 function Card({ children }: { children: ReactNode }) {
   return <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">{children}</div>;
@@ -132,19 +135,96 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
 
           <div className="space-y-2">
             <SectionTitle>Ovládanie</SectionTitle>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="primary" onClick={() => game.toggleRunning()}>
-                {game.running ? 'Pause' : 'Play'}
-              </Button>
-              <Button onClick={() => game.stepOnce()} disabled={game.running}>
-                Step
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="danger" onClick={() => game.clearAll()}>
-                Clear
-              </Button>
-              <Button onClick={() => game.randomize()}>Random</Button>
+            <div className="flex items-center justify-center gap-2">
+              <Tooltip label="Prev (krok späť)">
+                <Button
+                  className="h-10 w-10 rounded-full p-0"
+                  onClick={() => game.stepPrev()}
+                  disabled={game.running || game.undoCount === 0}
+                  aria-label="Prev"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className={CONTROL_ICON} aria-hidden="true">
+                    <path d="M7 6v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M19 6L9 12l10 6V6z" fill="currentColor" />
+                  </svg>
+                </Button>
+              </Tooltip>
+
+              <Tooltip label={game.running ? 'Pause' : 'Play'}>
+                <Button
+                  variant="primary"
+                  className="h-10 w-10 rounded-full p-0"
+                  onClick={() => game.toggleRunning()}
+                  aria-label={game.running ? 'Pause' : 'Play'}
+                >
+                  {game.running ? (
+                    <svg viewBox="0 0 24 24" fill="none" className={CONTROL_ICON} aria-hidden="true">
+                      <path d="M7 6h3v12H7V6zm7 0h3v12h-3V6z" fill="currentColor" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" className={CONTROL_ICON} aria-hidden="true">
+                      <path d="M8 5v14l12-7L8 5z" fill="currentColor" />
+                    </svg>
+                  )}
+                </Button>
+              </Tooltip>
+
+              <Tooltip label="Next (krok)">
+                <Button
+                  className="h-10 w-10 rounded-full p-0"
+                  onClick={() => game.stepOnce()}
+                  disabled={game.running}
+                  aria-label="Next"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className={CONTROL_ICON} aria-hidden="true">
+                    <path d="M17 6v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M5 6l10 6-10 6V6z" fill="currentColor" />
+                  </svg>
+                </Button>
+              </Tooltip>
+
+              <Tooltip label="Random">
+                <Button className="h-10 w-10 rounded-full p-0" onClick={() => game.randomize()} aria-label="Random">
+                  <svg viewBox="0 0 24 24" fill="none" className={CONTROL_ICON} aria-hidden="true">
+                    <path
+                      d="M4 7h4l8 10h4"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path d="M20 7l-2-2m2 2l-2 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M20 17l-2-2m2 2l-2 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <path
+                      d="M4 17h4l2.5-3.1"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M10.5 10.1L8 7H4"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </Button>
+              </Tooltip>
+
+              <Tooltip label="Stop (clear + reset jazera)">
+                <Button
+                  variant="danger"
+                  className="h-10 w-10 rounded-full p-0"
+                  onClick={() => game.clearAll()}
+                  aria-label="Stop"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className={CONTROL_ICON} aria-hidden="true">
+                    <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" />
+                  </svg>
+                </Button>
+              </Tooltip>
             </div>
           </div>
 
@@ -452,7 +532,7 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
               <kbd className="rounded-md border border-[var(--kbd-border)] bg-[var(--field)] px-1.5 py-0.5 font-mono text-[11px] border-b-2">
                 C
               </kbd>
-              =Clear
+              =Stop
             </div>
           </div>
         </div>

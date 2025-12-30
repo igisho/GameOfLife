@@ -11,6 +11,7 @@ type Props = {
   annihilationNonce: number;
   generation: number;
   drawNonce: number;
+  resetNonce: number;
   theme: ThemeName;
   running: boolean;
   onPaintCell: (r: number, c: number, mode: PaintMode) => void;
@@ -168,6 +169,7 @@ export default function LifeCanvas({
   annihilationNonce,
   generation,
   drawNonce,
+  resetNonce,
   theme,
   running,
   onPaintCell,
@@ -206,6 +208,31 @@ export default function LifeCanvas({
   useEffect(() => {
     onMediumAvgAmplitudeRef.current = onMediumAvgAmplitude;
   }, [onMediumAvgAmplitude]);
+
+  useEffect(() => {
+    const state = waveStateRef.current;
+    const ctx = waveCtxRef.current;
+    const canvas = waveCanvasRef.current;
+    if (!state) return;
+
+    state.uPrev.fill(0);
+    state.uCurr.fill(0);
+    state.uNext.fill(0);
+    state.lap1.fill(0);
+    state.lap2.fill(0);
+    state.memory.fill(0);
+    state.source.fill(0);
+    state.cooldown.fill(0);
+    state.visited.fill(0);
+
+    state.phase = 0;
+    state.lastTs = 0;
+    state.lastMetricTs = 0;
+    state.scanOffset = 0;
+
+    if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    onMediumAvgAmplitudeRef.current(0);
+  }, [resetNonce]);
 
   const waveColorsRef = useRef<{ pos: Rgb; neg: Rgb } | null>(null);
   const cellColorsRef = useRef<{ live: string; anti: string } | null>(null);

@@ -33,6 +33,8 @@ export type UseGameOfLifeResult = {
   liveCount: number;
   antiLiveCount: number;
   drawNonce: number;
+  resetNonce: number;
+  undoCount: number;
   liveRef: MutableRefObject<Set<number>>;
   antiLiveRef: MutableRefObject<Set<number>>;
   annihilationNonce: number;
@@ -41,6 +43,7 @@ export type UseGameOfLifeResult = {
   setRunning: (on: boolean) => void;
   toggleRunning: () => void;
   stepOnce: () => void;
+  stepPrev: () => void;
 
   clearAll: () => void;
   randomize: () => void;
@@ -116,8 +119,18 @@ export function useGameOfLife(): UseGameOfLifeResult {
   const [liveCount, setLiveCount] = useState(0);
   const [antiLiveCount, setAntiLiveCount] = useState(0);
   const [generation, setGeneration] = useState(0);
+  const generationRef = useRef(0);
+  useEffect(() => {
+    generationRef.current = generation;
+  }, [generation]);
+
   const [running, setRunningState] = useState(false);
   const [drawNonce, setDrawNonce] = useState(0);
+  const [resetNonce, setResetNonce] = useState(0);
+
+  const historyRef = useRef<Array<{ live: Set<number>; anti: Set<number>; generation: number }>>([]);
+  const [undoCount, setUndoCount] = useState(0);
+
   const [annihilationNonce, setAnnihilationNonce] = useState(0);
 
   const annihilationRef = useRef<number[]>([]);
@@ -237,19 +250,65 @@ export function useGameOfLife(): UseGameOfLifeResult {
 
   const stepOnce = useCallback(() => {
     if (running) return;
+
+    // Record history only for manual stepping (Prev/Next).
+    const snapshot = {
+      live: new Set(liveRef.current),
+      anti: new Set(antiLiveRef.current),
+      generation: generationRef.current,
+    };
+
+    const nextHistory = historyRef.current;
+    nextHistory.push(snapshot);
+    if (nextHistory.length > 64) nextHistory.shift();
+    setUndoCount(nextHistory.length);
+
     stepOnceInternal();
   }, [running, stepOnceInternal]);
 
+  const stepPrev = useCallback(() => {
+    if (running) return;
+
+    const prev = historyRef.current.pop();
+    setUndoCount(historyRef.current.length);
+    if (!prev) return;
+
+    liveRef.current = prev.live;
+    antiLiveRef.current = prev.anti;
+
+    setLiveCount(prev.live.size);
+    setAntiLiveCount(prev.anti.size);
+    setGeneration(prev.generation);
+
+    // Drop pending annihilation impulses; they belong to the future.
+    annihilationRef.current.length = 0;
+    bumpDraw();
+  }, [bumpDraw, running]);
+
   const clearAll = useCallback(() => {
+    setRunningState(false);
+    stopTimer();
+
     liveRef.current.clear();
     antiLiveRef.current.clear();
+    annihilationRef.current.length = 0;
+
+    historyRef.current.length = 0;
+    setUndoCount(0);
+
     setLiveCount(0);
     setAntiLiveCount(0);
     setGeneration(0);
+
+    setResetNonce((n) => n + 1);
     bumpDraw();
-  }, [bumpDraw]);
+  }, [bumpDraw, stopTimer]);
 
   const randomize = useCallback(() => {
+    // Randomization is a new starting state; reset undo.
+    historyRef.current.length = 0;
+    setUndoCount(0);
+
     const s = settingsRef.current;
     const p = clamp(s.density, 0, 1);
 
@@ -271,6 +330,10 @@ export function useGameOfLife(): UseGameOfLifeResult {
 
   const paintCell = useCallback(
     (r: number, c: number, mode: PaintMode) => {
+      // Painting changes the state outside step history.
+      historyRef.current.length = 0;
+      setUndoCount(0);
+
       const s = settingsRef.current;
       if (r < 0 || r >= s.rows || c < 0 || c >= s.cols) return;
 
@@ -414,6 +477,8 @@ export function useGameOfLife(): UseGameOfLifeResult {
       liveCount,
       antiLiveCount,
       drawNonce,
+      resetNonce,
+      undoCount,
       liveRef,
       antiLiveRef,
       annihilationNonce,
@@ -422,6 +487,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
       setRunning,
       toggleRunning,
       stepOnce,
+      stepPrev,
 
       clearAll,
       randomize,
@@ -474,6 +540,8 @@ export function useGameOfLife(): UseGameOfLifeResult {
       liveCount,
       antiLiveCount,
       annihilationNonce,
+      resetNonce,
+      undoCount,
       nucleateCells,
       nucleateAntiCells,
       paintCell,
@@ -482,6 +550,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
       setRunning,
       settings,
       stepOnce,
+      stepPrev,
       toggleRunning,
       updateSettings,
     ]
