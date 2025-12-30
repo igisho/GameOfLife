@@ -295,9 +295,6 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                 </Button>
               </Tooltip>
 
-              <span className="inline-flex rounded-full border border-[var(--pill-border)] bg-[var(--field)] px-2 py-1 text-xs font-medium opacity-90">
-                {game.running ? 'Running' : 'Paused'}
-              </span>
               <Button className="h-9 w-9 rounded-full p-0" onClick={onHide} aria-label="Zavrieť menu">
                 <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
                   <path

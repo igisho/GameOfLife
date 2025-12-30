@@ -251,7 +251,13 @@ export default function App() {
 
         <main className="h-full min-h-0 min-w-0 flex-1">
             <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--canvas)] shadow-lg [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)]">
-             <div className="pointer-events-none absolute right-4 top-4 z-10 space-y-2">
+              <div className="pointer-events-none absolute bottom-4 left-4 z-10">
+                <span className="inline-flex rounded-full border border-[var(--pill-border)] bg-[var(--field)] px-2 py-1 text-xs font-medium opacity-90">
+                  {game.running ? 'Running' : 'Paused'}
+                </span>
+              </div>
+
+              <div className="pointer-events-none absolute right-4 top-4 z-10 space-y-2">
                <div
                  className="w-[200px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
                  style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
