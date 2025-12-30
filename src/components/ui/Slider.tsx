@@ -7,7 +7,7 @@ type SliderProps = React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>;
 export default function Slider({ className, ...props }: SliderProps) {
   return (
     <SliderPrimitive.Root
-      className={cn('relative flex w-full touch-none select-none items-center', className)}
+      className={cn('relative flex w-full touch-none select-none items-center px-2', className)}
       {...props}
     >
       <SliderPrimitive.Track className="relative h-2 w-full grow overflow-hidden rounded-full bg-[var(--control)]">

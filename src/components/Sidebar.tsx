@@ -260,9 +260,9 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
   return (
     <>
       {infoModal}
-      <aside className="h-full min-h-0 min-w-0 w-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)] md:min-w-[450px]">
+       <aside className="h-full min-h-0 min-w-0 w-screen max-w-[100vw] overflow-x-visible overflow-y-hidden rounded-none border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)] md:min-w-[450px] md:w-full md:max-w-none md:rounded-2xl">
         <ScrollArea className="h-full w-full">
-          <div className="w-full min-w-0 space-y-4 p-4">
+          <div className="w-screen max-w-[100vw] min-w-0 space-y-4 p-4 md:w-full">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-base font-semibold leading-6">Časopriestorové médium</h1>

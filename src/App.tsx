@@ -275,31 +275,43 @@ export default function App() {
         </div>
       ) : null}
 
-      <div className={cn('flex h-full min-h-0', sidebarOpen ? 'gap-4' : 'gap-0')}>
-        <div
-          id="sidebar-drawer"
-          className={cn(
-            'relative z-30 h-full overflow-hidden transition-[width] duration-300 ease-out',
-            sidebarOpen ? 'w-[92vw] max-w-[450px] md:w-[450px] md:max-w-none' : 'w-0 pointer-events-none'
-          )}
-          aria-hidden={!sidebarOpen}
-        >
-          <div
-            className={cn(
-              'h-full transition-transform duration-300 ease-out',
-              sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-            )}
-          >
-            <Sidebar
-              game={game}
-              theme={theme}
-              setTheme={setTheme}
-              onHide={() => setSidebarOpen(false)}
-            />
-          </div>
-        </div>
+       {sidebarOpen ? (
+         <button
+           type="button"
+           className="fixed inset-0 z-20 bg-black/40 md:hidden"
+           onClick={() => setSidebarOpen(false)}
+           aria-label="Zavrieť menu"
+         />
+       ) : null}
 
-        <main className="h-full min-h-0 min-w-0 flex-1">
+       <div className={cn('flex h-full min-h-0', sidebarOpen ? 'gap-4' : 'gap-0')}>
+         <div
+           id="sidebar-drawer"
+           className={cn(
+             'h-full overflow-hidden transition-[width] duration-300 ease-out md:relative md:z-30',
+             sidebarOpen
+               ? 'fixed inset-0 z-30 w-screen max-w-[100vw] md:static md:inset-auto md:w-[450px] md:max-w-none'
+               : 'w-0 pointer-events-none'
+           )}
+           aria-hidden={!sidebarOpen}
+         >
+           <div
+             className={cn(
+               'h-full transition-transform duration-300 ease-out',
+               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+             )}
+           >
+             <Sidebar
+               game={game}
+               theme={theme}
+               setTheme={setTheme}
+               onHide={() => setSidebarOpen(false)}
+             />
+           </div>
+         </div>
+ 
+         <main className={cn('h-full min-h-0 min-w-0 flex-1', sidebarOpen ? 'hidden md:block' : '')}>
+
             <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--canvas)] shadow-lg [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)]">
               <div className="pointer-events-none absolute bottom-4 left-4 z-10">
                 <span className="inline-flex rounded-full border border-[var(--pill-border)] bg-[var(--field)] px-2 py-1 text-xs font-medium opacity-90">
