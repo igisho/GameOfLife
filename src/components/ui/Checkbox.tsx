@@ -13,7 +13,7 @@ export default function Checkbox({ className, ...props }: CheckboxProps) {
       )}
       {...props}
     >
-      <CheckboxPrimitive.Indicator className="text-[11px] font-bold leading-none text-[var(--text)]">
+      <CheckboxPrimitive.Indicator className="text-[11px] font-bold leading-none text-[var(--on-primary)]">
         ✓
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>

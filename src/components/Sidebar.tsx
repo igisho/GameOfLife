@@ -108,7 +108,7 @@ export default function Sidebar({ game, theme, setTheme, onPlaceGlider, onPlaceP
   );
 
   return (
-    <aside className="h-full min-h-0 min-w-0 w-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg shadow-black/20 md:min-w-[450px]">
+    <aside className="h-full min-h-0 min-w-0 w-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)] md:min-w-[450px]">
       <ScrollArea className="h-full w-full">
         <div className="w-full min-w-0 space-y-4 p-4">
           <div className="flex items-start justify-between gap-3">

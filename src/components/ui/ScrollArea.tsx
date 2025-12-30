@@ -10,7 +10,7 @@ export default function ScrollArea({ className, children, ...props }: React.Comp
         orientation="vertical"
         className="absolute right-1 top-1 bottom-1 flex w-2 touch-none select-none rounded-full bg-transparent p-0.5 transition-colors"
       >
-        <ScrollAreaPrimitive.Thumb className="relative flex-1 rounded-full bg-white/15" />
+        <ScrollAreaPrimitive.Thumb className="relative flex-1 rounded-full bg-[var(--scroll-thumb)]" />
       </ScrollAreaPrimitive.Scrollbar>
       <ScrollAreaPrimitive.Corner className="bg-transparent" />
     </ScrollAreaPrimitive.Root>

@@ -10,7 +10,8 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 const VARIANTS: Record<ButtonVariant, string> = {
   default:
     'border-[var(--control-border)] bg-[var(--control)] hover:bg-[var(--control-hover)] focus:ring-[var(--primary)]',
-  primary: 'border-[var(--primary)] bg-[var(--primary)] hover:bg-[var(--primary-hover)] focus:ring-[var(--primary)]',
+  primary:
+    'border-[var(--primary)] bg-[var(--primary)] text-[var(--on-primary)] hover:bg-[var(--primary-hover)] focus:ring-[var(--primary)]',
   danger:
     'border-[var(--danger-border)] bg-[var(--danger)] hover:bg-[var(--danger-hover)] focus:ring-[var(--primary)]',
 };

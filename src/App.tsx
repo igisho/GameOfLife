@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 
 function formatCount(n: number) {
   const v = Math.max(0, Math.floor(Number.isFinite(n) ? n : 0));
@@ -171,7 +171,7 @@ export default function App() {
     };
   }, [antiSeries, liveSeries]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyTheme(theme);
   }, [theme]);
 
@@ -254,7 +254,7 @@ export default function App() {
         </div>
 
         <main className="h-full min-h-0 min-w-0 flex-1">
-            <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--canvas)] shadow-lg shadow-black/20">
+            <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--canvas)] shadow-lg [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)]">
              <div className="pointer-events-none absolute right-4 top-4 z-10 space-y-2">
                <div
                  className="w-[200px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"

@@ -22,6 +22,9 @@
   --canvas: #0a0e15;
   --pill-border: #23314a;
   --kbd-border: #2b3b59;
+  --on-primary: #ffffff;
+  --shadow-color: rgb(0 0 0 / 0.55);
+  --scroll-thumb: rgb(255 255 255 / 0.14);
   --cell: #e8eef6;
   --anti-cell: #ff4fd8;
   --grid: #2b3b59;
