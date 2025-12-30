@@ -15,11 +15,12 @@ function rcOf(cols: number, key: number) {
   return [r, c] as const;
 }
 
-function annihilateOverlap(a: Set<number>, b: Set<number>) {
+function annihilateOverlap(a: Set<number>, b: Set<number>, events?: number[]) {
   if (a.size === 0 || b.size === 0) return;
   const [small, big] = a.size <= b.size ? [a, b] : [b, a];
   for (const k of small) {
     if (!big.has(k)) continue;
+    if (events) events.push(k);
     small.delete(k);
     big.delete(k);
   }
@@ -34,6 +35,8 @@ export type UseGameOfLifeResult = {
   drawNonce: number;
   liveRef: MutableRefObject<Set<number>>;
   antiLiveRef: MutableRefObject<Set<number>>;
+  annihilationNonce: number;
+  annihilationRef: MutableRefObject<number[]>;
 
   setRunning: (on: boolean) => void;
   toggleRunning: () => void;
@@ -63,12 +66,12 @@ export type UseGameOfLifeResult = {
   setNucleationThreshold: (threshold: number) => void;
   setAntiparticlesEnabled: (enabled: boolean) => void;
 
-  setNoiseEnabled: (enabled: boolean) => void;
-  setNoiseIntensityPercent: (noisePercent: number) => void;
-  setBlobSize: (blobSize: number) => void;
-  setBlobShape: (shape: GameSettings['blobShape']) => void;
-
   setLakeNoiseEnabled: (enabled: boolean) => void;
+
+  setMediumMemoryRatePercent: (percent: number) => void;
+  setMediumMemoryCoupling: (value: number) => void;
+  setMediumNonlinearity: (value: number) => void;
+  setAnnihilationBurstPercent: (percent: number) => void;
   setLakeNoiseIntensityPercent: (noisePercent: number) => void;
   setLakeBlobSize: (blobSize: number) => void;
   setLakeBlobShape: (shape: GameSettings['lakeBlobShape']) => void;
@@ -89,15 +92,15 @@ export function useGameOfLife(): UseGameOfLifeResult {
     hopStrength: 1,
     nucleationThreshold: 0.25,
 
-    antiparticlesEnabled: false,
+    antiparticlesEnabled: true,
 
-    // Cell noise (old behavior)
-    noiseEnabled: true,
-    noiseIntensity: 0.1,
-    blobSize: 4,
-    blobShape: 'square',
+    mediumMemoryRate: 0.04,
+    mediumMemoryCoupling: 10,
+    mediumNonlinearity: 8,
 
-    // Lake noise (new background agitation)
+    annihilationBurst: 0.25,
+
+    // Lake noise (new background lake agitation)
     lakeNoiseEnabled: true,
     lakeNoiseIntensity: 0.04,
     lakeBlobSize: 4,
@@ -116,6 +119,9 @@ export function useGameOfLife(): UseGameOfLifeResult {
   const [generation, setGeneration] = useState(0);
   const [running, setRunningState] = useState(false);
   const [drawNonce, setDrawNonce] = useState(0);
+  const [annihilationNonce, setAnnihilationNonce] = useState(0);
+
+  const annihilationRef = useRef<number[]>([]);
 
   const timerRef = useRef<number | null>(null);
 
@@ -136,6 +142,12 @@ export function useGameOfLife(): UseGameOfLifeResult {
     },
     []
   );
+
+  const recordAnnihilations = useCallback((events: number[]) => {
+    if (events.length === 0) return;
+    annihilationRef.current.push(...events);
+    setAnnihilationNonce((n) => n + 1);
+  }, []);
 
   const stepOnceInternal = useCallback(() => {
     const s = settingsRef.current;
@@ -180,67 +192,13 @@ export function useGameOfLife(): UseGameOfLifeResult {
       return next;
     };
 
-    const addLive = (r: number, c: number) => {
-      let rr = r;
-      let cc = c;
-      if (s.wrap) {
-        rr = (rr + s.rows) % s.rows;
-        cc = (cc + s.cols) % s.cols;
-      } else {
-        if (rr < 0 || rr >= s.rows || cc < 0 || cc >= s.cols) return;
-      }
-      liveRef.current.add(keyOf(s.cols, rr, cc));
-    };
-
-    const applyCellNoise = () => {
-      // In nucleation mode, "birth" should come from the medium, not from direct cell noise.
-      if (s.mediumMode === 'nucleation') return;
-      if (!s.noiseEnabled) return;
-      const p = clamp(s.noiseIntensity, 0, 1);
-      if (p <= 0) return;
-
-      const area = s.rows * s.cols;
-      const base = area / 8000;
-      const blobs = Math.max(0, Math.floor(p * 4 * base + (Math.random() < p * 0.5 ? 1 : 0)));
-      const speckles = Math.floor(p * 10 * base);
-
-      for (let i = 0; i < speckles; i++) {
-        const r = Math.floor(Math.random() * s.rows);
-        const c = Math.floor(Math.random() * s.cols);
-        liveRef.current.add(keyOf(s.cols, r, c));
-      }
-
-      for (let i = 0; i < blobs; i++) {
-        if (Math.random() > p) continue;
-
-        const r0 = Math.floor(Math.random() * s.rows);
-        const c0 = Math.floor(Math.random() * s.cols);
-        const size = clamp(s.blobSize, 1, 20);
-
-        if (s.blobShape === 'circle') {
-          const rad = size;
-          for (let dr = -rad; dr <= rad; dr++) {
-            for (let dc = -rad; dc <= rad; dc++) {
-              if (dr * dr + dc * dc > rad * rad) continue;
-              addLive(r0 + dr, c0 + dc);
-            }
-          }
-        } else {
-          for (let dr = 0; dr < size; dr++) {
-            for (let dc = 0; dc < size; dc++) {
-              addLive(r0 + dr, c0 + dc);
-            }
-          }
-        }
-      }
-    };
-
-    applyCellNoise();
 
     const nextLive = stepConway(liveRef.current);
     const nextAnti = stepConway(antiLiveRef.current);
 
-    annihilateOverlap(nextLive, nextAnti);
+    const events: number[] = [];
+    annihilateOverlap(nextLive, nextAnti, events);
+    recordAnnihilations(events);
 
     liveRef.current = nextLive;
     antiLiveRef.current = nextAnti;
@@ -249,7 +207,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
     setAntiLiveCount(nextAnti.size);
     setGeneration((g) => g + 1);
     bumpDraw();
-  }, [bumpDraw]);
+  }, [bumpDraw, recordAnnihilations]);
 
   const startTimer = useCallback(() => {
     stopTimer();
@@ -337,13 +295,15 @@ export function useGameOfLife(): UseGameOfLifeResult {
         }
       }
 
-      annihilateOverlap(liveRef.current, antiLiveRef.current);
+      const events: number[] = [];
+      annihilateOverlap(liveRef.current, antiLiveRef.current, events);
+      recordAnnihilations(events);
 
       setLiveCount(liveRef.current.size);
       setAntiLiveCount(antiLiveRef.current.size);
       bumpDraw();
     },
-    [bumpDraw]
+    [bumpDraw, recordAnnihilations]
   );
 
   const centerPlace = useCallback(
@@ -357,7 +317,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
     },
     [placePattern]
   );
-
+ 
   const paintCell = useCallback(
     (r: number, c: number, mode: PaintMode) => {
       const s = settingsRef.current;
@@ -393,13 +353,15 @@ export function useGameOfLife(): UseGameOfLifeResult {
         liveRef.current.add(keyOf(s.cols, rr, cc));
       }
 
-      annihilateOverlap(liveRef.current, antiLiveRef.current);
+      const events: number[] = [];
+      annihilateOverlap(liveRef.current, antiLiveRef.current, events);
+      recordAnnihilations(events);
 
       setLiveCount(liveRef.current.size);
       setAntiLiveCount(antiLiveRef.current.size);
       bumpDraw();
     },
-    [bumpDraw]
+    [bumpDraw, recordAnnihilations]
   );
 
   const nucleateAntiCells = useCallback(
@@ -420,13 +382,15 @@ export function useGameOfLife(): UseGameOfLifeResult {
         antiLiveRef.current.add(keyOf(s.cols, rr, cc));
       }
 
-      annihilateOverlap(liveRef.current, antiLiveRef.current);
+      const events: number[] = [];
+      annihilateOverlap(liveRef.current, antiLiveRef.current, events);
+      recordAnnihilations(events);
 
       setLiveCount(liveRef.current.size);
       setAntiLiveCount(antiLiveRef.current.size);
       bumpDraw();
     },
-    [bumpDraw]
+    [bumpDraw, recordAnnihilations]
   );
 
   const updateSettings = useCallback((patch: Partial<GameSettings>) => {
@@ -445,8 +409,10 @@ export function useGameOfLife(): UseGameOfLifeResult {
       hopStrength: clamp(Number(patch.hopStrength ?? prev.hopStrength), 0, 3),
       nucleationThreshold: clamp(Number(patch.nucleationThreshold ?? prev.nucleationThreshold), 0.01, 2),
 
-      noiseIntensity: clamp(Number(patch.noiseIntensity ?? prev.noiseIntensity), 0, 1),
-      blobSize: clamp(Number(patch.blobSize ?? prev.blobSize), 1, 20),
+      mediumMemoryRate: clamp(Number(patch.mediumMemoryRate ?? prev.mediumMemoryRate), 0, 0.3),
+      mediumMemoryCoupling: clamp(Number(patch.mediumMemoryCoupling ?? prev.mediumMemoryCoupling), 0, 60),
+      mediumNonlinearity: clamp(Number(patch.mediumNonlinearity ?? prev.mediumNonlinearity), 0, 60),
+      annihilationBurst: clamp(Number(patch.annihilationBurst ?? prev.annihilationBurst), 0, 1),
 
       lakeNoiseIntensity: clamp(Number(patch.lakeNoiseIntensity ?? prev.lakeNoiseIntensity), 0, 1),
       lakeBlobSize: clamp(Number(patch.lakeBlobSize ?? prev.lakeBlobSize), 1, 20),
@@ -476,16 +442,18 @@ export function useGameOfLife(): UseGameOfLifeResult {
       antiLiveRef.current.clear();
     }
 
-    annihilateOverlap(liveRef.current, antiLiveRef.current);
+    const events: number[] = [];
+    annihilateOverlap(liveRef.current, antiLiveRef.current, events);
+    recordAnnihilations(events);
 
     setLiveCount(liveRef.current.size);
     setAntiLiveCount(antiLiveRef.current.size);
 
-    if (colsChanged || rowsChanged || antiparticlesTurningOff) bumpDraw();
+    if (colsChanged || rowsChanged || antiparticlesTurningOff || events.length > 0) bumpDraw();
 
     settingsRef.current = next;
     setSettingsState(next);
-  }, [bumpDraw]);
+  }, [bumpDraw, recordAnnihilations]);
 
   const api = useMemo<UseGameOfLifeResult>(
     () => ({
@@ -497,6 +465,8 @@ export function useGameOfLife(): UseGameOfLifeResult {
       drawNonce,
       liveRef,
       antiLiveRef,
+      annihilationNonce,
+      annihilationRef,
 
       setRunning,
       toggleRunning,
@@ -525,12 +495,9 @@ export function useGameOfLife(): UseGameOfLifeResult {
         const patch: Partial<GameSettings> = { mediumMode: mode };
 
         if (mode === 'nucleation') {
-          patch.noiseEnabled = false;
           patch.lakeNoiseEnabled = true;
           if (prev.lakeNoiseIntensity <= 0) patch.lakeNoiseIntensity = 0.08;
         }
-
-        // If leaving nucleation mode, do not auto-reenable cell noise; user can opt-in.
 
         updateSettings(patch);
       },
@@ -539,16 +506,16 @@ export function useGameOfLife(): UseGameOfLifeResult {
       setNucleationThreshold: (threshold) => updateSettings({ nucleationThreshold: threshold }),
       setAntiparticlesEnabled: (enabled) => updateSettings({ antiparticlesEnabled: enabled }),
 
-      setNoiseEnabled: (enabled) => updateSettings({ noiseEnabled: enabled }),
-      setNoiseIntensityPercent: (noisePercent) => updateSettings({ noiseIntensity: clamp(noisePercent / 100, 0, 1) }),
-      setBlobSize: (blobSize) => updateSettings({ blobSize }),
-      setBlobShape: (shape) => updateSettings({ blobShape: shape }),
-
       setLakeNoiseEnabled: (enabled) => updateSettings({ lakeNoiseEnabled: enabled }),
       setLakeNoiseIntensityPercent: (noisePercent) =>
         updateSettings({ lakeNoiseIntensity: clamp(noisePercent / 100, 0, 1) }),
       setLakeBlobSize: (blobSize) => updateSettings({ lakeBlobSize: blobSize }),
       setLakeBlobShape: (shape) => updateSettings({ lakeBlobShape: shape }),
+
+      setMediumMemoryRatePercent: (percent) => updateSettings({ mediumMemoryRate: clamp(percent / 100, 0, 0.3) }),
+      setMediumMemoryCoupling: (value) => updateSettings({ mediumMemoryCoupling: value }),
+      setMediumNonlinearity: (value) => updateSettings({ mediumNonlinearity: value }),
+      setAnnihilationBurstPercent: (percent) => updateSettings({ annihilationBurst: clamp(percent / 100, 0, 1) }),
     }),
     [
       centerPlace,
@@ -557,6 +524,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
       generation,
       liveCount,
       antiLiveCount,
+      annihilationNonce,
       nucleateCells,
       nucleateAntiCells,
       paintCell,

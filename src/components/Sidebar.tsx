@@ -80,8 +80,23 @@ type Props = {
 
 export default function Sidebar({ game, theme, setTheme, onPlaceGlider, onPlacePulsar, onPlaceGun, onHide }: Props) {
   const densityPercent = useMemo(() => Math.round(game.settings.density * 100), [game.settings.density]);
-  const cellNoisePercent = useMemo(() => Math.round(game.settings.noiseIntensity * 100), [game.settings.noiseIntensity]);
   const lakeNoisePercent = useMemo(() => Math.round(game.settings.lakeNoiseIntensity * 100), [game.settings.lakeNoiseIntensity]);
+  const annihilationBurstPercent = useMemo(
+    () => Math.round(game.settings.annihilationBurst * 100),
+    [game.settings.annihilationBurst]
+  );
+  const mediumMemoryRatePercent = useMemo(
+    () => Math.round(game.settings.mediumMemoryRate * 100),
+    [game.settings.mediumMemoryRate]
+  );
+  const mediumMemoryCoupling = useMemo(
+    () => Math.round(game.settings.mediumMemoryCoupling * 10) / 10,
+    [game.settings.mediumMemoryCoupling]
+  );
+  const mediumNonlinearity = useMemo(
+    () => Math.round(game.settings.mediumNonlinearity * 10) / 10,
+    [game.settings.mediumNonlinearity]
+  );
   const hopHz = useMemo(() => Math.round(game.settings.hopHz * 10) / 10, [game.settings.hopHz]);
   const hopStrengthPercent = useMemo(
     () => Math.round(game.settings.hopStrength * 100),
@@ -99,7 +114,7 @@ export default function Sidebar({ game, theme, setTheme, onPlaceGlider, onPlaceP
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-base font-semibold leading-6">Conwayova Hra života</h1>
-              <p className="mt-0.5 text-xs opacity-70">Šumenie + kreslenie do mriežky</p>
+               <p className="mt-0.5 text-xs opacity-70">Médium + kreslenie do mriežky</p>
             </div>
             <div className="shrink-0 flex items-center gap-2">
               <span className="inline-flex rounded-full border border-[var(--pill-border)] bg-[var(--field)] px-2 py-1 text-xs font-medium opacity-90">
@@ -190,8 +205,7 @@ export default function Sidebar({ game, theme, setTheme, onPlaceGlider, onPlaceP
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="off">Vypnuté</SelectItem>
-                    <SelectItem value="visual">A: vlny (bez nukleácie)</SelectItem>
-                    <SelectItem value="nucleation">B: nukleácia z média</SelectItem>
+                    <SelectItem value="nucleation">Nukleácia z média</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -243,82 +257,83 @@ export default function Sidebar({ game, theme, setTheme, onPlaceGlider, onPlaceP
                 </div>
               ) : null}
 
-              <div className="mt-3">
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={game.settings.antiparticlesEnabled}
-                    onCheckedChange={(v) => game.setAntiparticlesEnabled(Boolean(v))}
-                  />
-                  <span>Anti-častice (experiment, iba v B režime)</span>
-                </label>
-              </div>
-            </Card>
+               <div className="mt-3">
+                 <label className="flex items-center gap-2 text-sm">
+                   <Checkbox
+                     checked={game.settings.antiparticlesEnabled}
+                     onCheckedChange={(v) => game.setAntiparticlesEnabled(Boolean(v))}
+                   />
+                    <span>Anti-častice (experiment)</span>
+                 </label>
+               </div>
+
+               <div className="mt-4 border-t border-[var(--panel-border)] pt-3">
+                 <div className="text-xs font-semibold uppercase tracking-wide opacity-70">Experimentálne ladene</div>
+
+                 <div className="mt-3">
+                   <div className="text-xs font-medium opacity-90">
+                     Intenzita anihilácie: <span className="font-semibold">{annihilationBurstPercent}%</span>
+                   </div>
+                   <div className="mt-2">
+                     <Slider
+                       value={[annihilationBurstPercent]}
+                       min={0}
+                       max={100}
+                       step={1}
+                       onValueChange={(v) => game.setAnnihilationBurstPercent(v[0] ?? annihilationBurstPercent)}
+                     />
+                   </div>
+                 </div>
+
+                 <div className="mt-3">
+                   <div className="text-xs font-medium opacity-90">
+                     Pamäť (rate): <span className="font-semibold">{mediumMemoryRatePercent}%</span>
+                   </div>
+                   <div className="mt-2">
+                     <Slider
+                       value={[mediumMemoryRatePercent]}
+                       min={0}
+                       max={30}
+                       step={1}
+                       onValueChange={(v) => game.setMediumMemoryRatePercent(v[0] ?? mediumMemoryRatePercent)}
+                     />
+                   </div>
+                 </div>
+
+                 <div className="mt-3">
+                   <div className="text-xs font-medium opacity-90">
+                     Väzba pamäte: <span className="font-semibold">{mediumMemoryCoupling}</span>
+                   </div>
+                   <div className="mt-2">
+                     <Slider
+                       value={[mediumMemoryCoupling]}
+                       min={0}
+                       max={60}
+                       step={0.5}
+                       onValueChange={(v) => game.setMediumMemoryCoupling(v[0] ?? mediumMemoryCoupling)}
+                     />
+                   </div>
+                 </div>
+
+                 <div className="mt-3">
+                   <div className="text-xs font-medium opacity-90">
+                     Nelinearita: <span className="font-semibold">{mediumNonlinearity}</span>
+                   </div>
+                   <div className="mt-2">
+                     <Slider
+                       value={[mediumNonlinearity]}
+                       min={0}
+                       max={60}
+                       step={0.5}
+                       onValueChange={(v) => game.setMediumNonlinearity(v[0] ?? mediumNonlinearity)}
+                     />
+                   </div>
+                 </div>
+               </div>
+             </Card>
           </div>
 
-          <div className="space-y-2">
-            <SectionTitle>Šumenie buniek</SectionTitle>
-            <Card>
-              <label className={`flex items-center gap-2 text-sm ${game.settings.mediumMode === 'nucleation' ? 'opacity-50' : ''}`}>
-                <Checkbox
-                  checked={game.settings.noiseEnabled}
-                  disabled={game.settings.mediumMode === 'nucleation'}
-                  onCheckedChange={(v) => game.setNoiseEnabled(Boolean(v))}
-                />
-                <span>Šumenie počas hry (v bunke)</span>
-              </label>
 
-              <div className="mt-3">
-                <div className="text-xs font-medium opacity-90">
-                  Intenzita: <span className="font-semibold">{cellNoisePercent}%</span>
-                </div>
-                <div className="mt-2">
-                  <Slider
-                    value={[cellNoisePercent]}
-                    min={0}
-                    max={100}
-                    step={1}
-                    disabled={game.settings.mediumMode === 'nucleation'}
-                    onValueChange={(v) => game.setNoiseIntensityPercent(v[0] ?? cellNoisePercent)}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <div className="text-xs font-medium opacity-90">
-                  Veľkosť objektov (px buniek): <span className="font-semibold">{game.settings.blobSize}</span>
-                </div>
-                <div className="mt-2">
-                  <Slider
-                    value={[game.settings.blobSize]}
-                    min={1}
-                    max={12}
-                    step={1}
-                    disabled={game.settings.mediumMode === 'nucleation'}
-                    onValueChange={(v) => game.setBlobSize(v[0] ?? game.settings.blobSize)}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <div className="text-xs font-medium opacity-90">Tvar objektu</div>
-                <div className="mt-2">
-                  <Select
-                    value={game.settings.blobShape}
-                    disabled={game.settings.mediumMode === 'nucleation'}
-                    onValueChange={(v) => game.setBlobShape(v as typeof game.settings.blobShape)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Vyber" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="square">Štvorec</SelectItem>
-                      <SelectItem value="circle">Kruh</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </Card>
-          </div>
 
           <div className="space-y-2">
             <SectionTitle>Šum jazera</SectionTitle>

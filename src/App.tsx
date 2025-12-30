@@ -51,7 +51,12 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const [mediumSeries, setMediumSeries] = useState<number[]>(() => Array.from({ length: 64 }, () => 0));
+  const [liveSeries, setLiveSeries] = useState<number[]>(() => Array.from({ length: 64 }, () => 0));
+  const [antiSeries, setAntiSeries] = useState<number[]>(() => Array.from({ length: 64 }, () => 0));
+
   const mediumAvg = mediumSeries[mediumSeries.length - 1] ?? 0;
+  const liveNow = liveSeries[liveSeries.length - 1] ?? 0;
+  const antiNow = antiSeries[antiSeries.length - 1] ?? 0;
 
   const onMediumAvgAmplitude = useCallback((avg: number) => {
     setMediumSeries((prev) => {
@@ -60,6 +65,21 @@ export default function App() {
       return next;
     });
   }, []);
+
+  useEffect(() => {
+    // Sample cell counts whenever the simulation redraws.
+    setLiveSeries((prev) => {
+      const next = prev.length >= 64 ? prev.slice(1) : prev.slice();
+      next.push(game.liveCount);
+      return next;
+    });
+
+    setAntiSeries((prev) => {
+      const next = prev.length >= 64 ? prev.slice(1) : prev.slice();
+      next.push(game.antiLiveCount);
+      return next;
+    });
+  }, [game.antiLiveCount, game.drawNonce, game.liveCount]);
 
   const { mediumPosSegments, mediumNegSegments, mediumMidY } = useMemo(() => {
     const w = 120;
@@ -122,6 +142,34 @@ export default function App() {
 
     return { mediumPosSegments: posSegments, mediumNegSegments: negSegments, mediumMidY: midY };
   }, [mediumSeries]);
+
+  const { livePoints, antiPoints } = useMemo(() => {
+    const w = 120;
+    const h = 22;
+
+    const build = (values: number[]) => {
+      const n = values.length;
+      if (n < 2) return '';
+
+      let max = 0;
+      for (const v of values) max = Math.max(max, Number.isFinite(v) ? v : 0);
+      max = Math.max(1, max);
+
+      const pts: string[] = [];
+      for (let i = 0; i < n; i++) {
+        const v = Number.isFinite(values[i]) ? Math.max(0, values[i] ?? 0) : 0;
+        const x = (i / (n - 1)) * w;
+        const y = h - (v / max) * (h - 2) - 1;
+        pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+      }
+      return pts.join(' ');
+    };
+
+    return {
+      livePoints: build(liveSeries),
+      antiPoints: build(antiSeries),
+    };
+  }, [antiSeries, liveSeries]);
 
   useEffect(() => {
     applyTheme(theme);
@@ -206,94 +254,129 @@ export default function App() {
         </div>
 
         <main className="h-full min-h-0 min-w-0 flex-1">
-          <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--canvas)] shadow-lg shadow-black/20">
-            <div className="pointer-events-none absolute right-4 top-4 z-10">
-              <div
-                className="w-[200px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
-                style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
-              >
-                <svg viewBox="0 0 120 34" width={120} height={34} className="block" aria-hidden="true">
-                  <line x1={0} y1={mediumMidY} x2={120} y2={mediumMidY} stroke="var(--grid)" strokeWidth={1} opacity={0.35} />
-                  {mediumNegSegments.map((points) => (
-                    <polyline
-                      key={`neg-${points}`}
-                      points={points}
-                      fill="none"
-                      stroke="var(--wave-neg)"
-                      strokeWidth={1.6}
-                      strokeLinejoin="round"
-                      strokeLinecap="round"
-                      opacity={0.95}
-                    />
-                  ))}
-                  {mediumPosSegments.map((points) => (
-                    <polyline
-                      key={`pos-${points}`}
-                      points={points}
-                      fill="none"
-                      stroke="var(--wave-pos)"
-                      strokeWidth={1.6}
-                      strokeLinejoin="round"
-                      strokeLinecap="round"
-                      opacity={0.95}
-                    />
-                  ))}
-                </svg>
+            <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--canvas)] shadow-lg shadow-black/20">
+             <div className="pointer-events-none absolute right-4 top-4 z-10 space-y-2">
+               <div
+                 className="w-[200px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
+                 style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
+               >
+                 <svg viewBox="0 0 120 34" width={120} height={34} className="block" aria-hidden="true">
+                   <line x1={0} y1={mediumMidY} x2={120} y2={mediumMidY} stroke="var(--grid)" strokeWidth={1} opacity={0.35} />
+                   {mediumNegSegments.map((points) => (
+                     <polyline
+                       key={`neg-${points}`}
+                       points={points}
+                       fill="none"
+                       stroke="var(--wave-neg)"
+                       strokeWidth={1.6}
+                       strokeLinejoin="round"
+                       strokeLinecap="round"
+                       opacity={0.95}
+                     />
+                   ))}
+                   {mediumPosSegments.map((points) => (
+                     <polyline
+                       key={`pos-${points}`}
+                       points={points}
+                       fill="none"
+                       stroke="var(--wave-pos)"
+                       strokeWidth={1.6}
+                       strokeLinejoin="round"
+                       strokeLinecap="round"
+                       opacity={0.95}
+                     />
+                   ))}
+                 </svg>
+ 
+                 <div className="mt-1 flex items-center justify-between gap-2 tabular-nums opacity-90">
+                   <div className="flex min-w-0 flex-1 items-center gap-1">
+                     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 opacity-80" aria-label="Generácia">
+                       <title>Generácia</title>
+                       <path
+                         d="M21 12a9 9 0 1 1-3.2-6.9"
+                         fill="none"
+                         stroke="currentColor"
+                         strokeWidth="2"
+                         strokeLinecap="round"
+                       />
+                       <path
+                         d="M21 4v6h-6"
+                         fill="none"
+                         stroke="currentColor"
+                         strokeWidth="2"
+                         strokeLinecap="round"
+                         strokeLinejoin="round"
+                       />
+                     </svg>
+                     <span className="w-[52px] text-right">{formatCount(game.generation)}</span>
+                   </div>
+ 
+                   <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+                     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 opacity-80" aria-label="Priemerná amplitúda média">
+                       <title>Priemerná amplitúda média</title>
+                       <path
+                         d="M2 12c3 0 3-6 6-6s3 12 6 12 3-6 6-6"
+                         fill="none"
+                         stroke="currentColor"
+                         strokeWidth="2"
+                         strokeLinecap="round"
+                         strokeLinejoin="round"
+                       />
+                     </svg>
+                     <span className="w-[52px] text-right">{formatSigned(mediumAvg)}</span>
+                   </div>
+                 </div>
+               </div>
 
-                <div className="mt-1 flex items-center justify-between gap-2 tabular-nums opacity-90">
-                  <div className="flex min-w-0 flex-1 items-center gap-1">
-                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 opacity-80" aria-label="Generácia">
-                      <title>Generácia</title>
-                      <path
-                        d="M21 12a9 9 0 1 1-3.2-6.9"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M21 4v6h-6"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    <span className="w-[52px] text-right">{formatCount(game.generation)}</span>
-                  </div>
+               <div
+                 className="w-[200px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
+                 style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
+               >
+                 <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">Počty buniek</div>
 
-                  <div className="flex min-w-0 flex-1 items-center justify-center gap-1">
-                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 opacity-80" aria-label="Živých">
-                      <title>Živých</title>
-                      <path d="M12 21s7-4.6 7-10.5A4.5 4.5 0 0 0 14.5 6c-1.2 0-2.3.5-3.1 1.4C10.6 6.5 9.5 6 8.3 6A4.5 4.5 0 0 0 4 10.5C4 16.4 12 21 12 21Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-                    </svg>
-                    <span className="w-[52px] text-right">{formatCount(game.liveCount)}</span>
-                  </div>
+                 <div className="mt-2 space-y-2 tabular-nums">
+                   <div className="flex items-center justify-between gap-2">
+                     <svg viewBox="0 0 120 22" width={120} height={22} className="block" aria-hidden="true">
+                       <line x1={0} y1={21} x2={120} y2={21} stroke="var(--grid)" strokeWidth={1} opacity={0.35} />
+                       <polyline
+                         points={livePoints}
+                         fill="none"
+                         stroke="var(--cell)"
+                         strokeWidth={1.6}
+                         strokeLinejoin="round"
+                         strokeLinecap="round"
+                         opacity={0.95}
+                       />
+                     </svg>
+                     <span className="w-[52px] text-right" title="Živé bunky (hmota)">{formatCount(liveNow)}</span>
+                   </div>
 
-                  <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
-                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 opacity-80" aria-label="Priemerná amplitúda média">
-                      <title>Priemerná amplitúda média</title>
-                      <path
-                        d="M2 12c3 0 3-6 6-6s3 12 6 12 3-6 6-6"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    <span className="w-[52px] text-right">{formatSigned(mediumAvg)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+                   <div className="flex items-center justify-between gap-2">
+                     <svg viewBox="0 0 120 22" width={120} height={22} className="block" aria-hidden="true">
+                       <line x1={0} y1={21} x2={120} y2={21} stroke="var(--grid)" strokeWidth={1} opacity={0.35} />
+                       <polyline
+                         points={antiPoints}
+                         fill="none"
+                         stroke="var(--anti-cell)"
+                         strokeWidth={1.6}
+                         strokeLinejoin="round"
+                         strokeLinecap="round"
+                         opacity={0.95}
+                       />
+                     </svg>
+                     <span className="w-[52px] text-right" title="Živé antibunky (antihmota)">{formatCount(antiNow)}</span>
+                   </div>
+                 </div>
+               </div>
+             </div>
 
             <div className="h-full overflow-auto">
               <LifeCanvas
                 settings={game.settings}
                 liveRef={game.liveRef}
                 antiLiveRef={game.antiLiveRef}
+                annihilationRef={game.annihilationRef}
+                annihilationNonce={game.annihilationNonce}
                 generation={game.generation}
                 drawNonce={game.drawNonce}
                 theme={theme}

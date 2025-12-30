@@ -7,6 +7,8 @@ type Props = {
   settings: GameSettings;
   liveRef: MutableRefObject<Set<number>>;
   antiLiveRef: MutableRefObject<Set<number>>;
+  annihilationRef: MutableRefObject<number[]>;
+  annihilationNonce: number;
   generation: number;
   drawNonce: number;
   theme: ThemeName;
@@ -75,6 +77,7 @@ type WaveState = {
   uNext: Float32Array;
   lap1: Float32Array;
   lap2: Float32Array;
+  memory: Float32Array;
   source: Float32Array;
   cooldown: Uint16Array;
   visited: Uint8Array;
@@ -161,6 +164,8 @@ export default function LifeCanvas({
   settings,
   liveRef,
   antiLiveRef,
+  annihilationRef,
+  annihilationNonce,
   generation,
   drawNonce,
   theme,
@@ -189,6 +194,13 @@ export default function LifeCanvas({
   useEffect(() => {
     runningRef.current = running;
   }, [running]);
+
+  const annihilationNonceRef = useRef(annihilationNonce);
+  useEffect(() => {
+    annihilationNonceRef.current = annihilationNonce;
+  }, [annihilationNonce]);
+
+  const lastProcessedAnnihilationNonceRef = useRef(0);
 
   const onMediumAvgAmplitudeRef = useRef(onMediumAvgAmplitude);
   useEffect(() => {
@@ -246,6 +258,7 @@ export default function LifeCanvas({
         uNext: new Float32Array(w * h),
         lap1: new Float32Array(w * h),
         lap2: new Float32Array(w * h),
+        memory: new Float32Array(w * h),
         source: new Float32Array(w * h),
         cooldown: new Uint16Array(w * h),
         visited: new Uint8Array(w * h),
@@ -443,6 +456,46 @@ export default function LifeCanvas({
         return;
       }
 
+      // Annihilation releases energy back into the medium.
+      // We model this as a localized displacement + velocity impulse with net-zero offset.
+      const currentAnnihilationNonce = annihilationNonceRef.current;
+      if (currentAnnihilationNonce !== lastProcessedAnnihilationNonceRef.current) {
+        lastProcessedAnnihilationNonceRef.current = currentAnnihilationNonce;
+
+        const events = annihilationRef.current;
+        if (events.length > 0) {
+          const w = state.w;
+          const h = state.h;
+          const burst = clamp(currentSettings.annihilationBurst, 0, 1);
+          const neighborShare = burst * 0.25;
+          const maxEventsPerFrame = 250;
+
+          const applyAt = (x: number, y: number, amount: number) => {
+            const xx = currentSettings.wrap ? (x + w) % w : clamp(x, 0, w - 1);
+            const yy = currentSettings.wrap ? (y + h) % h : clamp(y, 0, h - 1);
+            const i = idxOf(w, xx, yy);
+
+            state.uCurr[i] += amount;
+            state.uPrev[i] -= amount;
+          };
+
+          for (let e = 0; e < events.length && e < maxEventsPerFrame; e++) {
+            const key = events[e]!;
+            const [r, c] = keyToRc(currentSettings.cols, key);
+            const x = Math.floor((c / currentSettings.cols) * w);
+            const y = Math.floor((r / currentSettings.rows) * h);
+
+            applyAt(x, y, burst);
+            applyAt(x - 1, y, -neighborShare);
+            applyAt(x + 1, y, -neighborShare);
+            applyAt(x, y - 1, -neighborShare);
+            applyAt(x, y + 1, -neighborShare);
+          }
+
+          events.length = 0;
+        }
+      }
+
       // Medium is governed by Play/Pause.
       if (!runningRef.current) {
         // Keep reporting metrics while paused (flat line).
@@ -479,6 +532,11 @@ export default function LifeCanvas({
       const gamma = 2.2; // damping
       const kappa = 2.0; // dispersion strength
 
+      // Experimental: add a simple local memory + nonlinearity.
+      const memoryRate = clamp(currentSettings.mediumMemoryRate, 0, 0.3);
+      const memoryCoupling = clamp(currentSettings.mediumMemoryCoupling, 0, 60);
+      const nonlinearity = clamp(currentSettings.mediumNonlinearity, 0, 60);
+
       const hopHz = clamp(currentSettings.hopHz, 0, 20);
       const hopStrength = clamp(currentSettings.hopStrength, 0, 3);
       const hopAmplitude = 0.08 * hopStrength;
@@ -493,6 +551,18 @@ export default function LifeCanvas({
         // Ambient background disturbances.
         injectAmbientNoise(state, currentSettings, wrap);
 
+        // Memory update: m(t+dt) = (1-r)m + r*u
+        if (memoryRate > 0) {
+          const r = clamp(memoryRate, 0, 1);
+          const inv = 1 - r;
+          for (let i = 0; i < state.uCurr.length; i++) {
+            const u = state.uCurr[i];
+            const uSafe = Number.isFinite(u) ? clamp(u, -2, 2) : 0;
+            const mNext = inv * state.memory[i] + r * uSafe;
+            state.memory[i] = Number.isFinite(mNext) ? mNext : 0;
+          }
+        }
+
         laplacianInto({ w: state.w, h: state.h, wrap }, state.uCurr, state.lap1);
         laplacianInto({ w: state.w, h: state.h, wrap }, state.lap1, state.lap2);
 
@@ -505,9 +575,16 @@ export default function LifeCanvas({
 
         for (let i = 0; i < state.uCurr.length; i++) {
           const forcing = forcingGain * hopAmplitude * state.source[i] * sinPhase;
-          const rhs = c2 * state.lap1[i] - kappa * state.lap2[i] + forcing;
-          const next = (2 * state.uCurr[i] - state.uPrev[i] * (1 - gFactor) + dt2 * rhs) / denom;
-          state.uNext[i] = next;
+
+          const u = state.uCurr[i];
+          const uSafe = Number.isFinite(u) ? clamp(u, -2, 2) : 0;
+
+          const nonlinearTerm = -nonlinearity * uSafe * uSafe * uSafe;
+          const memoryTerm = memoryCoupling * state.memory[i];
+
+          const rhs = c2 * state.lap1[i] - kappa * state.lap2[i] + forcing + nonlinearTerm + memoryTerm;
+          const next = (2 * uSafe - (Number.isFinite(state.uPrev[i]) ? state.uPrev[i] : 0) * (1 - gFactor) + dt2 * rhs) / denom;
+          state.uNext[i] = Number.isFinite(next) ? next : 0;
         }
 
         // Rotate buffers.
@@ -711,7 +788,10 @@ export default function LifeCanvas({
         const valueScale = 1.2;
 
         for (let i = 0; i < state.uCurr.length; i++) {
-          const v = clamp(state.uCurr[i] * valueScale, -1, 1);
+          const u = state.uCurr[i];
+          const uSafe = Number.isFinite(u) ? u : 0;
+
+          const v = clamp(uSafe * valueScale, -1, 1);
           // Gamma boosts visibility of subtle waves.
           const a = Math.pow(Math.min(1, Math.abs(v)), 0.65);
           const alpha = Math.max(0, Math.round(alphaScale * a));
