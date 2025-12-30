@@ -19,6 +19,7 @@ WORKDIR /app
 COPY --from=builder /app/node_modules /app/node_modules
 # Copy necessary files
 COPY --from=builder /app/package*.json /app/
+COPY --from=builder /app/vite.config.ts /app/vite.config.ts
 COPY --from=builder /app/dist /app/dist
 
 EXPOSE 8080
