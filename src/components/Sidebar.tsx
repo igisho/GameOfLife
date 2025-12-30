@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Button from './ui/Button';
 import Checkbox from './ui/Checkbox';
 import ScrollArea from './ui/ScrollArea';
@@ -175,23 +176,13 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
     [game.settings.nucleationThreshold]
   );
 
-  return (
-    <aside className="h-full min-h-0 min-w-0 w-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)] md:min-w-[450px]">
-      {infoOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Ontologický základ"
-        >
-          <div
-            className="absolute inset-0 bg-black/60"
-            onMouseDown={() => setInfoOpen(false)}
-            aria-hidden="true"
-          />
+  const infoModal = infoOpen
+    ? createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Ontologický základ">
+          <div className="absolute inset-0 bg-black/60" onMouseDown={() => setInfoOpen(false)} aria-hidden="true" />
 
           <div
-            className="relative w-full max-w-[780px] overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg"
+            className="relative w-full max-w-[860px] overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3 border-b border-[var(--panel-border)] p-4">
@@ -201,22 +192,17 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
               </div>
               <Button className="h-9 w-9 rounded-full p-0" onClick={() => setInfoOpen(false)} aria-label="Zavrieť">
                 <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
-                  <path
-                    d="M6 6L18 18M18 6L6 18"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
+                  <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </Button>
             </div>
 
-            <ScrollArea className="max-h-[72vh]">
+            <ScrollArea className="max-h-[80vh]">
               <div className="space-y-4 p-4 text-sm leading-6">
                 <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3 text-xs opacity-90">
-                  Táto hra je vizuálna simulácia inšpirovaná ontologickým rámcom, v ktorom sú hmota,
-                  interakcie a „časopriestor“ emergentné režimy jedného dynamického média. Nejde o dôkaz
-                  ani fyzikálnu predpoveď; je to nástroj na intuitívne skúmanie prahov, pamäte a excitácií.
+                  Táto hra je vizuálna simulácia inšpirovaná ontologickým rámcom, v ktorom sú hmota, interakcie a
+                  „časopriestor“ emergentné režimy jedného dynamického média. Nejde o dôkaz ani fyzikálnu predpoveď;
+                  je to nástroj na intuitívne skúmanie prahov, pamäte a excitácií.
                 </div>
 
                 <div className="space-y-2">
@@ -236,7 +222,9 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                     <ul className="list-disc space-y-1 pl-5 text-sm">
                       <li>Čas je miera zmeny globálneho stavu média; priestor je vzťahová štruktúra stupňov voľnosti.</li>
                       <li>„Častice“ nie sú vložené objekty: sú stabilné režimy správania média (procesy).</li>
-                      <li>Fluktuácie môžu prekročiť kritický prah a stabilizovať sa (v UI: <span className="font-semibold">Prah nukleácie</span>).</li>
+                      <li>
+                        Fluktuácie môžu prekročiť kritický prah a stabilizovať sa (v UI: <span className="font-semibold">Prah nukleácie</span>).
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -264,11 +252,17 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
               </div>
             </ScrollArea>
           </div>
-        </div>
-      ) : null}
+        </div>,
+        document.body
+      )
+    : null;
 
-      <ScrollArea className="h-full w-full">
-        <div className="w-full min-w-0 space-y-4 p-4">
+  return (
+    <>
+      {infoModal}
+      <aside className="h-full min-h-0 min-w-0 w-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)] md:min-w-[450px]">
+        <ScrollArea className="h-full w-full">
+          <div className="w-full min-w-0 space-y-4 p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-base font-semibold leading-6">Časopriestorové médium</h1>
@@ -819,5 +813,6 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
         </div>
       </ScrollArea>
     </aside>
+    </>
   );
 }
