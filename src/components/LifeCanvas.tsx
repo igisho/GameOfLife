@@ -308,12 +308,13 @@ export default function LifeCanvas({
     state.source.fill(0);
 
     // Map living cells to downsampled grid.
+    // Anti-aligned coupling: matter damps (+) crests, antimatter damps (-) crests.
     for (const k of liveRef.current) {
       const [r, c] = keyToRc(settings.cols, k);
       const x = Math.floor((c / settings.cols) * w);
       const y = Math.floor((r / settings.rows) * h);
       if (x < 0 || x >= w || y < 0 || y >= h) continue;
-      state.source[idxOf(w, x, y)] += 1;
+      state.source[idxOf(w, x, y)] -= 1;
     }
 
     if (settings.antiparticlesEnabled) {
@@ -322,7 +323,7 @@ export default function LifeCanvas({
         const x = Math.floor((c / settings.cols) * w);
         const y = Math.floor((r / settings.rows) * h);
         if (x < 0 || x >= w || y < 0 || y >= h) continue;
-        state.source[idxOf(w, x, y)] -= 1;
+        state.source[idxOf(w, x, y)] += 1;
       }
     }
 
