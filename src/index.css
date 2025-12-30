@@ -61,18 +61,15 @@ canvas {
 @keyframes start-breath {
   0%,
   100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 14%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 18%, transparent);
   }
   50% {
-    transform: scale(1.02);
-    box-shadow: 0 0 0 10px transparent;
+    box-shadow: 0 0 0 12px transparent;
   }
 }
 
 .start-breath {
-  animation: start-breath 2.8s ease-in-out infinite;
-  will-change: transform;
+  animation: start-breath 2.6s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

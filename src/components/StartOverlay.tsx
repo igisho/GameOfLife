@@ -15,8 +15,16 @@ function patternSize(pattern: string[]) {
   return { width, height };
 }
 
-function PatternPreview({ pattern }: { pattern: string[] }) {
+function PatternPreview({ pattern, variant = 'default' }: { pattern: string[]; variant?: 'default' | 'onPrimary' }) {
   const { width, height } = patternSize(pattern);
+
+  const onClass = variant === 'onPrimary' ? 'bg-[var(--on-primary)]' : 'bg-[var(--cell)]';
+  const offClass =
+    variant === 'onPrimary' ? 'bg-[rgb(255_255_255_/_0.18)]' : 'bg-[color-mix(in srgb, var(--canvas) 70%, transparent)]';
+  const borderClass =
+    variant === 'onPrimary'
+      ? 'border-[rgb(255_255_255_/_0.22)]'
+      : 'border-[color-mix(in srgb, var(--grid) 55%, transparent)]';
 
   return (
     <div className="grid place-items-center" aria-hidden="true">
@@ -29,10 +37,7 @@ function PatternPreview({ pattern }: { pattern: string[] }) {
           return (
             <div
               key={`${r}:${c}`}
-              className={cn(
-                'h-3 w-3 rounded-[4px] border border-[color-mix(in srgb, var(--grid) 55%, transparent)] sm:h-4 sm:w-4 md:h-5 md:w-5',
-                on ? 'bg-[var(--cell)]' : 'bg-[color-mix(in srgb, var(--canvas) 70%, transparent)]'
-              )}
+              className={cn('h-3 w-3 rounded-[4px] border sm:h-4 sm:w-4 md:h-5 md:w-5', borderClass, on ? onClass : offClass)}
             />
           );
         })}
@@ -58,33 +63,45 @@ export default function StartOverlay({ open, options, onSelect, onAdvancedStart 
       <div className="relative w-full max-w-[820px]">
         <div className="text-center">
           <div className="text-3xl font-semibold leading-tight sm:text-4xl">Začať život?</div>
+          <div className="mt-2 text-sm opacity-85">Vyber jeden fragment.</div>
         </div>
 
-        <div className="mt-6 grid grid-cols-3 justify-items-center gap-3 sm:gap-4">
+        <div className="mx-auto mt-6 grid w-full max-w-[560px] grid-cols-3 gap-2 sm:gap-3">
           {options.map((opt) => (
             <button
               key={opt.id}
               type="button"
               onClick={() => onSelect(opt.id)}
               className={cn(
-                'start-breath group grid aspect-square w-full max-w-[140px] place-items-center overflow-hidden rounded-2xl',
-                'border border-[color-mix(in srgb, var(--panel-border) 75%, transparent)]',
-                'bg-[color-mix(in srgb, var(--canvas) 88%, transparent)] transition',
-                'hover:scale-[1.03] hover:bg-[color-mix(in srgb, var(--canvas) 70%, var(--control))]',
-                'focus:outline-none focus:ring-2 focus:ring-[var(--primary)]'
+                'start-breath group relative grid aspect-square w-full place-items-center overflow-hidden rounded-2xl',
+                'cursor-pointer border border-[color-mix(in srgb, var(--primary) 85%, transparent)]',
+                'bg-[var(--primary)] text-[var(--on-primary)] shadow-lg',
+                'transition',
+                'hover:-translate-y-0.5 hover:bg-[var(--primary-hover)]',
+                'active:translate-y-0 active:scale-[0.98]',
+                'focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2 focus:ring-offset-black/30'
               )}
               aria-label={`Začať: ${opt.title}`}
             >
               <div className="p-3 sm:p-4">
-                <PatternPreview pattern={opt.pattern} />
+                <PatternPreview pattern={opt.pattern} variant="onPrimary" />
               </div>
             </button>
           ))}
         </div>
 
-        <div className="mt-5 flex flex-col items-center gap-2">
-          <Button className="h-10 w-full max-w-[320px]" onClick={onAdvancedStart}>
-            advanced start
+        <div className="mt-6 flex flex-col items-center">
+          <Button
+            className={cn(
+              'h-12 w-full max-w-[560px] rounded-2xl text-base font-semibold shadow-lg',
+              'border border-[color-mix(in srgb, var(--panel-border) 92%, transparent)]',
+              'bg-[color-mix(in srgb, var(--panel) 74%, transparent)]',
+              'hover:-translate-y-0.5 hover:border-[var(--primary)] hover:bg-[color-mix(in srgb, var(--panel) 84%, transparent)]',
+              'active:translate-y-0 active:scale-[0.99]'
+            )}
+            onClick={onAdvancedStart}
+          >
+            Rozšírený štart
           </Button>
         </div>
       </div>
