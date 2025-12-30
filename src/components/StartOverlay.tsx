@@ -1,4 +1,7 @@
 import Button from './ui/Button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/Select';
+import { useI18n } from '../i18n/I18nProvider';
+import type { Locale } from '../i18n/locales';
 import { cn } from '../lib/cn';
 
 export type StartPatternOption = {
@@ -54,6 +57,8 @@ type Props = {
 };
 
 export default function StartOverlay({ open, options, onSelect, onAdvancedStart }: Props) {
+  const { locale, setLocale, t } = useI18n();
+
   if (!open) return null;
 
   return (
@@ -62,8 +67,8 @@ export default function StartOverlay({ open, options, onSelect, onAdvancedStart 
 
       <div className="relative w-full max-w-[820px]">
         <div className="text-center">
-          <div className="text-3xl font-semibold leading-tight sm:text-4xl">Začať život?</div>
-          <div className="mt-2 text-sm opacity-85">Vyber jeden fragment.</div>
+          <div className="text-3xl font-semibold leading-tight sm:text-4xl">{t('start.title')}</div>
+          <div className="mt-2 text-sm opacity-85">{t('start.subtitle')}</div>
         </div>
 
         <div className="mx-auto mt-6 grid w-full max-w-[560px] grid-cols-3 gap-2 sm:gap-3">
@@ -81,7 +86,7 @@ export default function StartOverlay({ open, options, onSelect, onAdvancedStart 
                 'active:translate-y-0 active:scale-[0.98]',
                 'focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2 focus:ring-offset-black/30'
               )}
-              aria-label={`Začať: ${opt.title}`}
+              aria-label={t('start.ariaStartPattern', { name: opt.title })}
             >
               <div className="p-3 sm:p-4">
                 <PatternPreview pattern={opt.pattern} variant="onPrimary" />
@@ -101,8 +106,25 @@ export default function StartOverlay({ open, options, onSelect, onAdvancedStart 
             )}
             onClick={onAdvancedStart}
           >
-            Rozšírený štart
+            {t('start.advanced')}
           </Button>
+
+          <div className="mt-4 w-full max-w-[560px]">
+            <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('language.label')}</div>
+            <div className="mt-1">
+              <Select value={locale} onValueChange={(v) => setLocale(v as Locale, { replace: true })}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder={t('common.choose')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">{t('language.en')}</SelectItem>
+                  <SelectItem value="de">{t('language.de')}</SelectItem>
+                  <SelectItem value="fr">{t('language.fr')}</SelectItem>
+                  <SelectItem value="sk">{t('language.sk')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
       </div>
     </div>

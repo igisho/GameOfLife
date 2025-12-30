@@ -38,6 +38,7 @@ import { useGameOfLife } from './game/useGameOfLife';
 import { BLINKER, START_L3, START_SHIFTED_2X2 } from './game/patterns';
 import { cn } from './lib/cn';
 import { applyTheme, type ThemeName } from './lib/themes';
+import { useI18n } from './i18n/I18nProvider';
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
@@ -48,6 +49,7 @@ function isTypingTarget(target: EventTarget | null) {
 
 export default function App() {
   const game = useGameOfLife();
+  const { t } = useI18n();
   const [theme, setTheme] = useState<ThemeName>('dark');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [startOverlayOpen, setStartOverlayOpen] = useState(true);
@@ -210,11 +212,16 @@ export default function App() {
 
   const startOptions = useMemo(
     () => [
-      { id: 'blinker', title: 'OOO', subtitle: '3 v rade', pattern: BLINKER },
-      { id: 'l3', title: 'L', subtitle: 'OO / .O', pattern: START_L3 },
-      { id: 'shifted', title: 'Dvojblok', subtitle: 'OO / .OO', pattern: START_SHIFTED_2X2 },
+      { id: 'blinker', title: t('start.pattern.blinker'), subtitle: t('start.pattern.blinker.subtitle'), pattern: BLINKER },
+      { id: 'l3', title: t('start.pattern.l3'), subtitle: t('start.pattern.l3.subtitle'), pattern: START_L3 },
+      {
+        id: 'shifted',
+        title: t('start.pattern.doubleBlock'),
+        subtitle: t('start.pattern.doubleBlock.subtitle'),
+        pattern: START_SHIFTED_2X2,
+      },
     ],
-    []
+    [t]
   );
 
   const centerCanvasScroll = useCallback(() => {
@@ -259,7 +266,7 @@ export default function App() {
           <Button
             className="h-10 w-10 rounded-full p-0"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Otvoriť menu"
+            aria-label={t('app.openMenu')}
             aria-expanded={false}
             aria-controls="sidebar-drawer"
           >
@@ -280,7 +287,7 @@ export default function App() {
            type="button"
            className="fixed inset-0 z-20 bg-black/40 md:hidden"
            onClick={() => setSidebarOpen(false)}
-           aria-label="Zavrieť menu"
+            aria-label={t('app.closeMenu')}
          />
        ) : null}
 
@@ -315,7 +322,7 @@ export default function App() {
             <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--canvas)] shadow-lg [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)]">
                <div className="pointer-events-none absolute bottom-4 left-4 z-10">
                  <span className="inline-flex rounded-full border border-[var(--pill-border)] bg-[var(--field)] px-2 py-1 text-xs font-medium opacity-90">
-                   {game.running ? 'Running' : 'Paused'}
+                    {game.running ? t('app.status.running') : t('app.status.paused')}
                  </span>
                </div>
 
@@ -325,7 +332,7 @@ export default function App() {
                      className="h-12 w-12 rounded-full border border-[var(--pill-border)] p-0 text-white shadow-lg hover:bg-black/50 [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)]"
                      style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 82%, transparent)' }}
                      onClick={() => game.toggleRunning()}
-                     aria-label={game.running ? 'Pause' : 'Play'}
+                      aria-label={game.running ? t('app.pause') : t('app.play')}
                    >
                      {game.running ? (
                        <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden="true">
@@ -376,8 +383,8 @@ export default function App() {
  
                  <div className="mt-1 flex items-center justify-between gap-2 tabular-nums opacity-90">
                    <div className="flex min-w-0 flex-1 items-center gap-1">
-                     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 opacity-80" aria-label="Generácia">
-                       <title>Generácia</title>
+                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 opacity-80" aria-label={t('app.generation')}>
+                        <title>{t('app.generation')}</title>
                        <path
                          d="M21 12a9 9 0 1 1-3.2-6.9"
                          fill="none"
@@ -398,8 +405,8 @@ export default function App() {
                    </div>
  
                    <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
-                     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 opacity-80" aria-label="Priemerná amplitúda média">
-                       <title>Priemerná amplitúda média</title>
+                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 opacity-80" aria-label={t('app.mediumAvgAmplitude')}>
+                        <title>{t('app.mediumAvgAmplitude')}</title>
                        <path
                          d="M2 12c3 0 3-6 6-6s3 12 6 12 3-6 6-6"
                          fill="none"
@@ -418,7 +425,7 @@ export default function App() {
                  className="w-[200px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
                  style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
                >
-                 <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">Počty buniek</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('app.cellCounts')}</div>
 
                  <div className="mt-2 space-y-2 tabular-nums">
                    <div className="flex items-center justify-between gap-2">
@@ -434,7 +441,7 @@ export default function App() {
                          opacity={0.95}
                        />
                      </svg>
-                     <span className="w-[52px] text-right" title="Živé bunky (hmota)">{formatCount(liveNow)}</span>
+                      <span className="w-[52px] text-right" title={t('app.liveCellsTitle')}>{formatCount(liveNow)}</span>
                    </div>
 
                    <div className="flex items-center justify-between gap-2">
@@ -450,7 +457,7 @@ export default function App() {
                          opacity={0.95}
                        />
                      </svg>
-                     <span className="w-[52px] text-right" title="Živé antibunky (antihmota)">{formatCount(antiNow)}</span>
+                      <span className="w-[52px] text-right" title={t('app.antiCellsTitle')}>{formatCount(antiNow)}</span>
                    </div>
                  </div>
                </div>

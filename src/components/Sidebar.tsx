@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { useI18n } from '../i18n/I18nProvider';
 import { createPortal } from 'react-dom';
 import Button from './ui/Button';
 import Checkbox from './ui/Checkbox';
@@ -14,6 +15,8 @@ function SectionTitle({ children }: { children: string }) {
 }
 
 function HelpButton({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const { t } = useI18n();
+
   return (
     <button
       type="button"
@@ -21,7 +24,7 @@ function HelpButton({ open, onToggle }: { open: boolean; onToggle: () => void })
         "inline-flex h-6 w-6 items-center justify-center rounded-full border border-[var(--pill-border)] bg-[var(--field)] text-[11px] font-semibold opacity-80 transition-opacity hover:opacity-100"
       }
       onClick={onToggle}
-      aria-label={open ? 'Skryť vysvetlenie' : 'Zobraziť vysvetlenie'}
+      aria-label={open ? t('helpButton.hide') : t('helpButton.show')}
       aria-expanded={open}
     >
       i
@@ -115,6 +118,7 @@ type Props = {
 };
 
 export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
+  const { t } = useI18n();
   const [infoOpen, setInfoOpen] = useState(false);
 
   useEffect(() => {
@@ -178,7 +182,12 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
 
   const infoModal = infoOpen
     ? createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Ontologický základ">
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('info.modal.ariaLabel')}
+        >
           <div className="absolute inset-0 bg-black/60" onMouseDown={() => setInfoOpen(false)} aria-hidden="true" />
 
           <div
@@ -187,10 +196,10 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
           >
             <div className="flex items-start justify-between gap-3 border-b border-[var(--panel-border)] p-4">
               <div className="min-w-0">
-                <div className="text-sm font-semibold">Ontologický základ</div>
-                <div className="mt-0.5 text-xs opacity-70">Zhrnutie rámca „dynamické časopriestorové médium“</div>
+                <div className="text-sm font-semibold">{t('info.modal.title')}</div>
+                <div className="mt-0.5 text-xs opacity-70">{t('info.modal.subtitle')}</div>
               </div>
-              <Button className="h-9 w-9 rounded-full p-0" onClick={() => setInfoOpen(false)} aria-label="Zavrieť">
+              <Button className="h-9 w-9 rounded-full p-0" onClick={() => setInfoOpen(false)} aria-label={t('common.close')}>
                 <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
                   <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
@@ -200,52 +209,51 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
             <ScrollArea className="max-h-[80vh]">
               <div className="space-y-4 p-4 text-sm leading-6">
                 <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3 text-xs opacity-90">
-                  Táto hra je vizuálna simulácia inšpirovaná ontologickým rámcom, v ktorom sú hmota, interakcie a
-                  „časopriestor“ emergentné režimy jedného dynamického média. Nejde o dôkaz ani fyzikálnu predpoveď;
-                  je to nástroj na intuitívne skúmanie prahov, pamäte a excitácií.
+                  {t('info.intro')}
                 </div>
 
                 <div className="space-y-2">
-                  <SectionTitle>Postulát média</SectionTitle>
+                  <SectionTitle>{t('info.postulate.title')}</SectionTitle>
                   <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">
                     <ul className="list-disc space-y-1 pl-5 text-sm">
-                      <li>Existuje jediné fundamentálne médium: dynamické, kontinuálne, nelineárne a s pamäťou.</li>
-                      <li>Globálny stav média je primárny; lokálne stavy sú projekcie jeho usporiadania.</li>
-                      <li>Separovateľnosť je aproximácia platná len v niektorých režimoch.</li>
+                      <li>{t('info.postulate.0')}</li>
+                      <li>{t('info.postulate.1')}</li>
+                      <li>{t('info.postulate.2')}</li>
                     </ul>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <SectionTitle>Čas, priestor, excitácie</SectionTitle>
+                  <SectionTitle>{t('info.timeSpace.title')}</SectionTitle>
                   <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">
                     <ul className="list-disc space-y-1 pl-5 text-sm">
-                      <li>Čas je miera zmeny globálneho stavu média; priestor je vzťahová štruktúra stupňov voľnosti.</li>
-                      <li>„Častice“ nie sú vložené objekty: sú stabilné režimy správania média (procesy).</li>
+                      <li>{t('info.timeSpace.0')}</li>
+                      <li>{t('info.timeSpace.1')}</li>
                       <li>
-                        Fluktuácie môžu prekročiť kritický prah a stabilizovať sa (v UI: <span className="font-semibold">Prah nukleácie</span>).
+                        {t('info.timeSpace.2a')} <span className="font-semibold">{t('info.timeSpace.2b')}</span>
+                        {t('info.timeSpace.2c')}
                       </li>
                     </ul>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <SectionTitle>Antihmota a anihilácia</SectionTitle>
+                  <SectionTitle>{t('info.antimatter.title')}</SectionTitle>
                   <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">
                     <ul className="list-disc space-y-1 pl-5 text-sm">
-                      <li>Ak excitácie nesú orientovaný/topologický znak, antičastica je ten istý režim s opačnou orientáciou.</li>
-                      <li>Anihilácia je zánik stabilného režimu a rekonfigurácia média: energia sa vracia do poľa.</li>
-                      <li>V tejto simulácii sa to prejavuje impulzným budením média pri lokálnych udalostiach.</li>
+                      <li>{t('info.antimatter.0')}</li>
+                      <li>{t('info.antimatter.1')}</li>
+                      <li>{t('info.antimatter.2')}</li>
                     </ul>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <SectionTitle>Poznámka k simulácii</SectionTitle>
+                  <SectionTitle>{t('info.simNote.title')}</SectionTitle>
                   <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">
                     <ul className="list-disc space-y-1 pl-5 text-sm">
-                      <li>Farebné „more“ zobrazuje podpísanú polaritu vlnového poľa (kladnú aj zápornú zložku).</li>
-                      <li>„Hopkanie“ je modelované ako periodické lokálne dopady (impulzy) viazané na zdroje, nie ako globálny sínusový flip.</li>
+                      <li>{t('info.simNote.0')}</li>
+                      <li>{t('info.simNote.1')}</li>
                     </ul>
                   </div>
                 </div>
@@ -265,15 +273,15 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
           <div className="w-screen max-w-[100vw] min-w-0 space-y-4 p-4 md:w-full">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="text-base font-semibold leading-6">Časopriestorové médium</h1>
-              <p className="mt-0.5 text-xs opacity-70">Hra života + excitácie (hmota/antihmota)</p>
+              <h1 className="text-base font-semibold leading-6">{t('sidebar.title')}</h1>
+              <p className="mt-0.5 text-xs opacity-70">{t('sidebar.subtitle')}</p>
             </div>
             <div className="shrink-0 flex items-center gap-2">
-              <Tooltip label="Ontologický základ">
+              <Tooltip label={t('sidebar.info.tooltip')}>
                 <Button
                   className="h-9 w-9 rounded-full p-0"
                   onClick={() => setInfoOpen(true)}
-                  aria-label="Info"
+                  aria-label={t('sidebar.info.button')}
                   aria-haspopup="dialog"
                   aria-expanded={infoOpen}
                 >
@@ -289,7 +297,7 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                 </Button>
               </Tooltip>
 
-              <Button className="h-9 w-9 rounded-full p-0" onClick={onHide} aria-label="Zavrieť menu">
+              <Button className="h-9 w-9 rounded-full p-0" onClick={onHide} aria-label={t('app.closeMenu')}>
                 <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
                   <path
                     d="M6 6L18 18M18 6L6 18"
@@ -303,14 +311,14 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
           </div>
 
           <div className="space-y-2">
-            <SectionTitle>Ovládanie</SectionTitle>
+            <SectionTitle>{t('controls.title')}</SectionTitle>
             <div className="flex items-center justify-center gap-2">
-              <Tooltip label="Prev (krok späť)">
+              <Tooltip label={t('controls.prev.tooltip')}>
                 <Button
                   className="h-10 w-10 rounded-full p-0"
                   onClick={() => game.stepPrev()}
                   disabled={game.running || game.undoCount === 0}
-                  aria-label="Prev"
+                  aria-label={t('controls.prev.aria')}
                 >
                   <svg viewBox="0 0 24 24" fill="none" className={CONTROL_ICON} aria-hidden="true">
                     <path d="M7 6v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -319,12 +327,12 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                 </Button>
               </Tooltip>
 
-              <Tooltip label={game.running ? 'Pause' : 'Play'}>
+              <Tooltip label={game.running ? t('app.pause') : t('app.play')}>
                 <Button
                   variant="primary"
                   className="h-10 w-10 rounded-full p-0"
                   onClick={() => game.toggleRunning()}
-                  aria-label={game.running ? 'Pause' : 'Play'}
+                  aria-label={game.running ? t('app.pause') : t('app.play')}
                 >
                   {game.running ? (
                     <svg viewBox="0 0 24 24" fill="none" className={CONTROL_ICON} aria-hidden="true">
@@ -338,12 +346,12 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                 </Button>
               </Tooltip>
 
-              <Tooltip label="Next (krok)">
+              <Tooltip label={t('controls.next.tooltip')}>
                 <Button
                   className="h-10 w-10 rounded-full p-0"
                   onClick={() => game.stepOnce()}
                   disabled={game.running}
-                  aria-label="Next"
+                  aria-label={t('controls.next.aria')}
                 >
                   <svg viewBox="0 0 24 24" fill="none" className={CONTROL_ICON} aria-hidden="true">
                     <path d="M17 6v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -352,8 +360,12 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                 </Button>
               </Tooltip>
 
-              <Tooltip label="Random">
-                <Button className="h-10 w-10 rounded-full p-0" onClick={() => game.randomize()} aria-label="Random">
+              <Tooltip label={t('controls.random.tooltip')}>
+                <Button
+                  className="h-10 w-10 rounded-full p-0"
+                  onClick={() => game.randomize()}
+                  aria-label={t('controls.random.aria')}
+                >
                   <svg viewBox="0 0 24 24" fill="none" className={CONTROL_ICON} aria-hidden="true">
                     <path
                       d="M4 7h4l8 10h4"
@@ -382,12 +394,12 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                 </Button>
               </Tooltip>
 
-              <Tooltip label="Stop (vymazať + reset média)">
+              <Tooltip label={t('controls.stop.tooltip')}>
                 <Button
                   variant="danger"
                   className="h-10 w-10 rounded-full p-0"
                   onClick={() => game.clearAll()}
-                  aria-label="Stop"
+                  aria-label={t('controls.stop.aria')}
                 >
                   <svg viewBox="0 0 24 24" fill="none" className={CONTROL_ICON} aria-hidden="true">
                     <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" />
@@ -399,14 +411,10 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
 
 
           <div className="space-y-2">
-            <SectionTitle>Simulácia</SectionTitle>
+            <SectionTitle>{t('simulation.title')}</SectionTitle>
             <LabeledSlider
-              label={
-                <>
-                  Rýchlosť evolúcie (ms/krok): <span className="font-semibold">{game.settings.speedMs}</span>
-                </>
-              }
-              help="Interval medzi krokmi automatu. Nižšie = rýchlejšia evolúcia a rýchlejšie zmeny v médiu."
+              label={t('simulation.speed', { value: game.settings.speedMs })}
+              help={t('simulation.speedHelp')}
               value={game.settings.speedMs}
               min={10}
               max={400}
@@ -414,12 +422,8 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
               onChange={(v) => game.setSpeedMs(v)}
             />
             <LabeledSlider
-              label={
-                <>
-                  Hustota (Random): <span className="font-semibold">{densityPercent}%</span>
-                </>
-              }
-              help="Koľko buniek sa vytvorí pri Random. Vyššie = viac zrážok a viac anihilácií."
+              label={t('simulation.density', { value: densityPercent })}
+              help={t('simulation.densityHelp')}
               value={densityPercent}
               min={0}
               max={100}
@@ -429,22 +433,20 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
           </div>
 
           <div className="space-y-2">
-            <SectionTitle>Médium (vlnové pole)</SectionTitle>
+            <SectionTitle>{t('medium.title')}</SectionTitle>
             <Card>
               <HelpRow
-                label={<div className="text-xs font-medium opacity-90">Režim média</div>}
-                help={
-                  'Zapína vlnové médium. V režime „Nukleácia“ môže médium pri prekročení prahu vytvárať nové jadrá (hmotu/antihmotu).'
-                }
+                label={<div className="text-xs font-medium opacity-90">{t('medium.mode.label')}</div>}
+                help={t('medium.mode.help')}
               />
               <div className="mt-2">
                 <Select value={game.settings.mediumMode} onValueChange={(v) => game.setMediumMode(v as typeof game.settings.mediumMode)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Vyber" />
+                    <SelectValue placeholder={t('medium.mode.placeholder')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="off">Vypnuté</SelectItem>
-                    <SelectItem value="nucleation">Nukleácia z média</SelectItem>
+                    <SelectItem value="off">{t('medium.mode.off')}</SelectItem>
+                    <SelectItem value="nucleation">{t('medium.mode.nucleation')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -452,13 +454,9 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                <div className="mt-3">
                 <HelpRow
                   label={
-                    <div className="text-xs font-medium opacity-90">
-                      Frekvencia dopadov: <span className="font-semibold">{hopHz} Hz</span>
-                    </div>
-                  }
-                  help={
-                    'Ako často za sekundu zdroje (bunky/antibunky) urobia impulzný „dopad“ do média. Vyššie = hustejšie vlny a častejšie prahové udalosti.'
-                  }
+                     <div className="text-xs font-medium opacity-90">{t('medium.hopHz.label', { value: hopHz })}</div>
+                   }
+                   help={t('medium.hopHz.help')}
                 />
                 <div className="mt-2">
                   <Slider
@@ -474,13 +472,11 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                <div className="mt-3">
                 <HelpRow
                   label={
-                    <div className="text-xs font-medium opacity-90">
-                      Sila dopadu zdroja: <span className="font-semibold">{hopStrengthPercent}%</span>
-                    </div>
-                  }
-                  help={
-                    "Veľkosť impulzu pri dopade. Vyššie = väčšia amplitúda vĺn okolo zdroja; sleduj zmeny farby ‚mora‘ a častejšiu nukleáciu."
-                  }
+                     <div className="text-xs font-medium opacity-90">
+                       {t('medium.hopStrength.label', { value: hopStrengthPercent })}
+                     </div>
+                   }
+                   help={t('medium.hopStrength.help')}
                 />
                 <div className="mt-2">
                   <Slider
@@ -497,13 +493,11 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                 <div className="mt-3">
                   <HelpRow
                     label={
-                      <div className="text-xs font-medium opacity-90">
-                        Prah nukleácie: <span className="font-semibold">{nucleationThreshold}</span>
-                      </div>
-                    }
-                    help={
-                      'Kritická amplitúda (po vyhladení), pri ktorej sa fluktuácia média stabilizuje do jadra. Nižšie = ľahšie vzniká hmota/antihmota; vyššie = stabilnejšie, zriedkavejšie nukleácie.'
-                    }
+                         <div className="text-xs font-medium opacity-90">
+                           {t('medium.nucleationThreshold.label', { value: nucleationThreshold })}
+                         </div>
+                       }
+                       help={t('medium.nucleationThreshold.help')}
                   />
                   <div className="mt-2">
                     <Slider
@@ -525,28 +519,24 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                          checked={game.settings.antiparticlesEnabled}
                          onCheckedChange={(v) => game.setAntiparticlesEnabled(Boolean(v))}
                        />
-                       <span>Anti-častice (opačná orientácia)</span>
+                        <span>{t('medium.antiparticles.label')}</span>
                      </label>
                    }
-                   help={
-                     'Povoľuje negatívnu polaritu média vytvárať anti-jadrá (antihmotu). Vypnuté = nukleujú len kladné jadrá.'
-                   }
+                    help={t('medium.antiparticles.help')}
                  />
                </div>
 
                  <div className="mt-4 border-t border-[var(--panel-border)] pt-3">
-                  <div className="text-xs font-semibold uppercase tracking-wide opacity-70">Ladenie dynamiky</div>
+                   <div className="text-xs font-semibold uppercase tracking-wide opacity-70">{t('medium.tuning.title')}</div>
 
                   <div className="mt-3">
                     <HelpRow
                       label={
-                        <div className="text-xs font-medium opacity-90">
-                          Energia anihilácie: <span className="font-semibold">{annihilationBurstPercent}%</span>
-                        </div>
-                      }
-                      help={
-                        "Koľko energie sa pri strete bunka+antibunka vráti späť do média (impulz). Vyššie = výraznejšie vlnové ‚výbuchy‘ a viac sekundárnych fluktuácií."
-                      }
+                         <div className="text-xs font-medium opacity-90">
+                           {t('medium.annihilationEnergy.label', { value: annihilationBurstPercent })}
+                         </div>
+                       }
+                       help={t('medium.annihilationEnergy.help')}
                     />
                    <div className="mt-2">
                      <Slider
@@ -562,13 +552,11 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                   <div className="mt-3">
                     <HelpRow
                       label={
-                        <div className="text-xs font-medium opacity-90">
-                          Pamäť média (miera): <span className="font-semibold">{mediumMemoryRatePercent}%</span>
-                        </div>
-                      }
-                      help={
-                        'Ako rýchlo sa lokálna pamäť prispôsobuje aktuálnemu poľu. Vyššie = dlhšie dozvuky a viac „histórie“ v správaní média.'
-                      }
+                         <div className="text-xs font-medium opacity-90">
+                           {t('medium.memoryRate.label', { value: mediumMemoryRatePercent })}
+                         </div>
+                       }
+                       help={t('medium.memoryRate.help')}
                     />
                    <div className="mt-2">
                      <Slider
@@ -584,13 +572,11 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                   <div className="mt-3">
                     <HelpRow
                       label={
-                        <div className="text-xs font-medium opacity-90">
-                          Väzba pamäte: <span className="font-semibold">{mediumMemoryCoupling}</span>
-                        </div>
-                      }
-                      help={
-                        "Ako silno pamäť spätne pôsobí na dynamiku. Vyššie = výraznejšie štruktúry a ‚vodítko‘ vĺn; príliš vysoko môže systém rozkmitať."
-                      }
+                         <div className="text-xs font-medium opacity-90">
+                           {t('medium.memoryCoupling.label', { value: mediumMemoryCoupling })}
+                         </div>
+                       }
+                       help={t('medium.memoryCoupling.help')}
                     />
                    <div className="mt-2">
                      <Slider
@@ -606,13 +592,11 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                   <div className="mt-3">
                     <HelpRow
                       label={
-                        <div className="text-xs font-medium opacity-90">
-                          Nelinearita média: <span className="font-semibold">{mediumNonlinearity}</span>
-                        </div>
-                      }
-                      help={
-                        'Nelineárna spätná väzba, ktorá mení správanie pri väčších amplitúdach. Vyššie = ostrejšie javy a iný charakter šírenia; príliš vysoko môže tlmiť veľké vlny.'
-                      }
+                         <div className="text-xs font-medium opacity-90">
+                           {t('medium.nonlinearity.label', { value: mediumNonlinearity })}
+                         </div>
+                       }
+                       help={t('medium.nonlinearity.help')}
                     />
                    <div className="mt-2">
                      <Slider
@@ -631,28 +615,26 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
 
 
           <div className="space-y-2">
-            <SectionTitle>Fluktuácie média</SectionTitle>
+             <SectionTitle>{t('fluctuations.title')}</SectionTitle>
             <Card>
               <HelpRow
                 label={
                   <label className="flex items-center gap-2 text-sm">
                     <Checkbox checked={game.settings.lakeNoiseEnabled} onCheckedChange={(v) => game.setLakeNoiseEnabled(Boolean(v))} />
-                    <span>Ambientné fluktuácie</span>
+                     <span>{t('fluctuations.ambient.label')}</span>
                   </label>
                 }
-                help={
-                  'Náhodné malé impulzy do média (fluktuácie). Zapni, ak chceš „samovoľné“ vznikanie štruktúr aj bez kreslenia.'
-                }
+                 help={t('fluctuations.ambient.help')}
               />
 
                <div className="mt-3">
                 <HelpRow
                   label={
-                    <div className="text-xs font-medium opacity-90">
-                      Intenzita: <span className="font-semibold">{lakeNoisePercent}%</span>
-                    </div>
-                  }
-                  help={'Sila fluktuácií. Vyššie = viac rušenia v „mori“ a viac prahových prechodov (nukleácií).'}
+                     <div className="text-xs font-medium opacity-90">
+                       {t('fluctuations.intensity.label', { value: lakeNoisePercent })}
+                     </div>
+                   }
+                   help={t('fluctuations.intensity.help')}
                 />
                 <div className="mt-2">
                   <Slider
@@ -668,11 +650,11 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                <div className="mt-3">
                 <HelpRow
                   label={
-                    <div className="text-xs font-medium opacity-90">
-                      Veľkosť fluktuácie (px): <span className="font-semibold">{game.settings.lakeBlobSize}</span>
-                    </div>
-                  }
-                  help={'Priestorový rozsah fluktuácie. Menšie = jemné zrnenie; väčšie = väčšie „bubliny“ v médiu.'}
+                     <div className="text-xs font-medium opacity-90">
+                       {t('fluctuations.size.label', { value: game.settings.lakeBlobSize })}
+                     </div>
+                   }
+                   help={t('fluctuations.size.help')}
                 />
                 <div className="mt-2">
                   <Slider
@@ -687,17 +669,20 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
 
                <div className="mt-3">
                   <HelpRow
-                    label={<div className="text-xs font-medium opacity-90">Tvar fluktuácie</div>}
-                    help={'Geometria lokálneho impulzu (kruh/štvorec). Mení charakter vlnového frontu.'}
+                     label={<div className="text-xs font-medium opacity-90">{t('fluctuations.shape.label')}</div>}
+                     help={t('fluctuations.shape.help')}
                   />
                 <div className="mt-2">
-                  <Select value={game.settings.lakeBlobShape} onValueChange={(v) => game.setLakeBlobShape(v as typeof game.settings.lakeBlobShape)}>
+                  <Select
+                    value={game.settings.lakeBlobShape}
+                    onValueChange={(v) => game.setLakeBlobShape(v as typeof game.settings.lakeBlobShape)}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Vyber" />
+                      <SelectValue placeholder={t('common.choose')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="square">Štvorec</SelectItem>
-                      <SelectItem value="circle">Kruh</SelectItem>
+                       <SelectItem value="square">{t('fluctuations.shape.square')}</SelectItem>
+                       <SelectItem value="circle">{t('fluctuations.shape.circle')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -706,48 +691,38 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
           </div>
 
            <div className="space-y-2">
-             <SectionTitle>Grid</SectionTitle>
-             <LabeledSlider
-               label={
-                 <>
-                   Rozmer mriežky (1:1): <span className="font-semibold">{Math.min(game.settings.rows, game.settings.cols)}</span>
-                 </>
-               }
-               help="Nastaví počet riadkov aj stĺpcov naraz (štvorcová mriežka). Vyššie = viac detailu, ale výrazne viac výpočtu a pamäte."
-               value={Math.min(game.settings.rows, game.settings.cols)}
-               min={500}
-               max={10000}
-               step={100}
-               onChange={(v) => {
-                 game.setRows(v);
-                 game.setCols(v);
-               }}
-             />
-             <LabeledSlider
-              label={
-                <>
-                  Veľkosť bunky (px): <span className="font-semibold">{game.settings.cellSize}</span>
-                </>
-              }
-              help="Mierka zobrazenia (zoom). Menšie = viac buniek na obrazovke (náročnejšie); väčšie = prehľadnejšie." 
-              value={game.settings.cellSize}
-              min={4}
-              max={20}
-              step={1}
-              onChange={(v) => game.setCellSize(v)}
-            />
+             <SectionTitle>{t('grid.title')}</SectionTitle>
+              <LabeledSlider
+                label={t('grid.size.label', { value: Math.min(game.settings.rows, game.settings.cols) })}
+                help={t('grid.size.help')}
+                value={Math.min(game.settings.rows, game.settings.cols)}
+                min={500}
+                max={10000}
+                step={100}
+                onChange={(v) => {
+                  game.setRows(v);
+                  game.setCols(v);
+                }}
+              />
+              <LabeledSlider
+                label={t('grid.cellSize.label', { value: game.settings.cellSize })}
+                help={t('grid.cellSize.help')}
+                value={game.settings.cellSize}
+                min={4}
+                max={20}
+                step={1}
+                onChange={(v) => game.setCellSize(v)}
+              />
             <div className="grid grid-cols-2 gap-2">
               <Card>
                 <HelpRow
                   label={
                     <label className="flex items-center gap-2 text-sm">
                       <Checkbox checked={game.settings.wrap} onCheckedChange={(v) => game.setWrap(Boolean(v))} />
-                      <span>Wrap okraje (torus)</span>
+                       <span>{t('grid.wrap.label')}</span>
                     </label>
                   }
-                  help={
-                    'Zapnuté = okraje sú spojené (torus). Vypnuté = okraj je hranica; vlny/štruktúry sa správajú inak pri stene.'
-                  }
+                   help={t('grid.wrap.help')}
                 />
               </Card>
               <Card>
@@ -755,59 +730,62 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                   label={
                     <label className="flex items-center gap-2 text-sm">
                       <Checkbox checked={game.settings.showGrid} onCheckedChange={(v) => game.setShowGrid(Boolean(v))} />
-                      <span>Zobraziť mriežku</span>
+                       <span>{t('grid.showGrid.label')}</span>
                     </label>
                   }
-                  help={'Iba vizuálna pomôcka. Vypni pre čistejší pohľad na vlnové pole.'}
+                   help={t('grid.showGrid.help')}
                 />
               </Card>
             </div>
           </div>
 
           <div className="space-y-2">
-            <SectionTitle>Vzhľad</SectionTitle>
+            <SectionTitle>{t('appearance.title')}</SectionTitle>
             <Card>
               <HelpRow
-                label={<div className="text-xs font-medium opacity-90">Farebná schéma</div>}
-                help={'Mení CSS premenné farieb (bunky, grid, polarita vĺn). Nemá vplyv na dynamiku.'}
+                 label={<div className="text-xs font-medium opacity-90">{t('appearance.theme.label')}</div>}
+                 help={t('appearance.theme.help')}
               />
               <div className="mt-2">
-                <Select value={theme} onValueChange={(v) => setTheme(v as ThemeName)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Vyber" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dark">Dark</SelectItem>
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="matrix">Matrix</SelectItem>
-                    <SelectItem value="solarized">Solarized</SelectItem>
-                    <SelectItem value="neon">Neon</SelectItem>
-                  </SelectContent>
+                 <Select value={theme} onValueChange={(v) => setTheme(v as ThemeName)}>
+                   <SelectTrigger>
+                     <SelectValue placeholder={t('common.choose')} />
+                   </SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="dark">{t('theme.dark')}</SelectItem>
+                     <SelectItem value="light">{t('theme.light')}</SelectItem>
+                     <SelectItem value="matrix">{t('theme.matrix')}</SelectItem>
+                     <SelectItem value="solarized">{t('theme.solarized')}</SelectItem>
+                     <SelectItem value="neon">{t('theme.neon')}</SelectItem>
+                   </SelectContent>
                 </Select>
               </div>
             </Card>
           </div>
 
            <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3 text-xs opacity-80">
-            <div>Kreslenie: ľavé tlačidlo pridáva, pravé maže.</div>
+            <div>{t('hints.drawing')}</div>
             <div className="mt-2">
-              Skratky:
+              {t('hints.shortcuts')}
               <kbd className="rounded-md border border-[var(--kbd-border)] bg-[var(--field)] px-1.5 py-0.5 font-mono text-[11px] border-b-2">
                 Space
               </kbd>
-              =Play/Pause,
+               ={t('hints.shortcut.playPause')},
+
               <kbd className="rounded-md border border-[var(--kbd-border)] bg-[var(--field)] px-1.5 py-0.5 font-mono text-[11px] border-b-2">
                 Enter
               </kbd>
-              =Step,
+               ={t('hints.shortcut.step')},
+
               <kbd className="rounded-md border border-[var(--kbd-border)] bg-[var(--field)] px-1.5 py-0.5 font-mono text-[11px] border-b-2">
                 R
               </kbd>
-              =Random,
+               ={t('hints.shortcut.random')},
+
               <kbd className="rounded-md border border-[var(--kbd-border)] bg-[var(--field)] px-1.5 py-0.5 font-mono text-[11px] border-b-2">
                 C
               </kbd>
-              =Stop
+               ={t('hints.shortcut.stop')}
             </div>
           </div>
         </div>
