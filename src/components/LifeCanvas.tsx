@@ -86,7 +86,20 @@ type WaveState = {
   phase: number;
   lastTs: number;
   scanOffset: number;
+
+  // UI-facing metrics
   lastMetricTs: number;
+
+  // Adaptive visualization scaling for wave rendering.
+  // uRef is a "typical strong" |u| value (p95-ish) smoothed over time.
+  // uHi is a more extreme reference (p99-ish) used for highlight handling.
+  lastVisTs: number;
+  uRef: number;
+  uHi: number;
+
+  // Demodulated / low-pass field used for visualization.
+  // This makes fast oscillatory driving readable as a stable polarity map.
+  uVis: Float32Array;
 };
 
 function idxOf(w: number, x: number, y: number) {
@@ -228,6 +241,10 @@ export default function LifeCanvas({
     state.phase = 0;
     state.lastTs = 0;
     state.lastMetricTs = 0;
+    state.lastVisTs = 0;
+    state.uRef = clamp(latestSettingsRef.current.nucleationThreshold * 2.5, 0.05, 2);
+    state.uHi = state.uRef;
+    state.uVis.fill(0);
     state.scanOffset = 0;
 
     if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -279,7 +296,7 @@ export default function LifeCanvas({
     canvas.width = w;
     canvas.height = h;
 
-      waveStateRef.current = {
+        waveStateRef.current = {
         w,
         h,
         uPrev: new Float32Array(w * h),
@@ -296,6 +313,10 @@ export default function LifeCanvas({
         lastTs: 0,
         scanOffset: 0,
         lastMetricTs: 0,
+        lastVisTs: 0,
+        uRef: clamp(latestSettingsRef.current.nucleationThreshold * 2.5, 0.05, 2),
+        uHi: clamp(latestSettingsRef.current.nucleationThreshold * 2.5, 0.05, 2),
+        uVis: new Float32Array(w * h),
       };
 
   }, [settings.cols, settings.rows]);
@@ -569,13 +590,33 @@ export default function LifeCanvas({
 
       const hopHz = clamp(currentSettings.hopHz, 0, 20);
       const hopStrength = clamp(currentSettings.hopStrength, 0, 3);
-      const hopAmplitude = 0.08 * hopStrength;
+
+      // "Hopkanie" as a droplet-like bounce: discrete impacts that inject a
+      // localized displacement + velocity kick at source locations.
+      // This avoids a global sign flip of the whole medium (which happened when
+      // using a continuous sin(phase) forcing term).
+      const hopKick = 0.16 * hopStrength;
+      const tau = 2 * Math.PI;
 
       for (let sub = 0; sub < steps; sub++) {
-        // Update phase for periodic forcing.
+        // Update phase and apply bounce impacts when we cross a full period.
         if (hopHz > 0) {
-          state.phase += 2 * Math.PI * hopHz * hStep;
-          if (state.phase > Math.PI * 8) state.phase = state.phase % (Math.PI * 2);
+          state.phase += tau * hopHz * hStep;
+          const impacts = Math.floor(state.phase / tau);
+          if (impacts > 0) {
+            state.phase = state.phase % tau;
+
+            if (hopKick > 0) {
+              const amount = hopKick * impacts;
+              for (let i = 0; i < state.uCurr.length; i++) {
+                const s = state.source[i];
+                if (s === 0) continue;
+                const kick = amount * s;
+                state.uCurr[i] += kick;
+                state.uPrev[i] -= kick;
+              }
+            }
+          }
         }
 
         // Ambient background disturbances.
@@ -600,19 +641,15 @@ export default function LifeCanvas({
         const g = gamma;
         const gFactor = g * hStep * 0.5;
         const denom = 1 + gFactor;
-        const sinPhase = hopHz > 0 ? Math.sin(state.phase) : 0;
-        const forcingGain = 40;
 
         for (let i = 0; i < state.uCurr.length; i++) {
-          const forcing = forcingGain * hopAmplitude * state.source[i] * sinPhase;
-
           const u = state.uCurr[i];
           const uSafe = Number.isFinite(u) ? clamp(u, -2, 2) : 0;
 
           const nonlinearTerm = -nonlinearity * uSafe * uSafe * uSafe;
           const memoryTerm = memoryCoupling * state.memory[i];
 
-          const rhs = c2 * state.lap1[i] - kappa * state.lap2[i] + forcing + nonlinearTerm + memoryTerm;
+          const rhs = c2 * state.lap1[i] - kappa * state.lap2[i] + nonlinearTerm + memoryTerm;
           const next = (2 * uSafe - (Number.isFinite(state.uPrev[i]) ? state.uPrev[i] : 0) * (1 - gFactor) + dt2 * rhs) / denom;
           state.uNext[i] = Number.isFinite(next) ? next : 0;
         }
@@ -810,6 +847,42 @@ export default function LifeCanvas({
         onMediumAvgAmplitudeRef.current(count > 0 ? sum / count : 0);
       }
 
+      // Adaptive visualization scaling: estimate reference amplitudes from the
+      // demodulated/low-pass visualization field.
+      //
+      // Why: with fast driving (e.g. 20 Hz) the raw field can flip sign quickly,
+      // and global max-based scaling kills mid-tones. We track p95/p99 of |uVis|
+      // and tie the floor to the nucleation threshold so "about-to-nucleate"
+      // regions stay visible.
+      if (ts - state.lastVisTs > 120) {
+        state.lastVisTs = ts;
+
+        const sample: number[] = [];
+        const step = 16;
+        for (let i = 0; i < state.uVis.length; i += step) {
+          const u = state.uVis[i];
+          const uSafe = Number.isFinite(u) ? u : 0;
+          sample.push(Math.abs(uSafe));
+        }
+
+        sample.sort((a, b) => a - b);
+        const idx95 = Math.max(0, Math.min(sample.length - 1, Math.floor(sample.length * 0.95)));
+        const idx99 = Math.max(0, Math.min(sample.length - 1, Math.floor(sample.length * 0.99)));
+        const p95 = sample[idx95] ?? 0;
+        const p99 = sample[idx99] ?? 0;
+
+        const threshold = clamp(currentSettings.nucleationThreshold, 0.01, 2);
+        const minRef = threshold * 1.4;
+
+        const targetRef = clamp(Math.max(0.02, p95, minRef), 0.02, 2);
+        const targetHi = clamp(Math.max(targetRef * 1.15, p99), 0.02, 2);
+
+        const emaRef = 0.08;
+        const emaHi = 0.12;
+        state.uRef = state.uRef > 0 ? state.uRef + (targetRef - state.uRef) * emaRef : targetRef;
+        state.uHi = state.uHi > 0 ? state.uHi + (targetHi - state.uHi) * emaHi : targetHi;
+      }
+
       // Render into low-res wave canvas.
       // Use a diverging colormap with a neutral midpoint, so both polarity and
       // magnitude are readable (not just "pink vs blue").
@@ -824,28 +897,53 @@ export default function LifeCanvas({
           b: lerp(a.b, b.b, t),
         });
 
-        // Soft-saturate instead of hard clamp, so we keep mid-tones.
-        // Larger values make the medium "more contrasty".
-        const valueScale = 1.0;
+        // Wide-dynamic-range mapping (signed):
+        // - polarity from sign(u)
+        // - magnitude from |u| with adaptive scaling
+        //
+        // We render a low-pass field so fast oscillations remain readable.
+        const uRef = Math.max(1e-4, state.uRef);
+        const uHi = Math.max(uRef, state.uHi);
 
-        // Keep even subtle waves visible, but avoid washing out the cells layer.
+        const hopHz = clamp(currentSettings.hopHz, 0, 20);
+        const visEma = hopHz > 0 ? 0.12 : 0.22;
+
+        const softness = 0.22;
+        const denom = Math.asinh(1 / softness);
+
+        // Keep subtle waves visible, but avoid washing out the cells layer.
         const alphaMin = 18;
-        const alphaMax = 160;
-        const gamma = 0.85;
+        const alphaMax = 215;
+        const alphaGamma = 0.85;
 
         for (let i = 0; i < state.uCurr.length; i++) {
           const u = state.uCurr[i];
           const uSafe = Number.isFinite(u) ? u : 0;
 
-          // t in [-1, 1]
-          const t = Math.tanh(uSafe * valueScale);
-          const mag = Math.abs(t);
+          // Low-pass the field for stable visualization.
+          const prevVis = state.uVis[i] ?? 0;
+          const uVis = prevVis + (uSafe - prevVis) * visEma;
+          state.uVis[i] = Number.isFinite(uVis) ? uVis : 0;
 
-          const mix = Math.pow(mag, 0.9);
+          const absU = Math.abs(uVis);
+
+          const tRaw = Math.asinh(uVis / (uRef * softness)) / denom;
+          const t = clamp(tRaw, -1, 1);
+
+          const mag = clamp(Math.abs(tRaw), 0, 1);
+          const over = uHi > uRef ? clamp((absU - uRef) / (uHi - uRef), 0, 1) : 0;
+
+          const mix = Math.pow(Math.abs(t), 0.9);
           const target = t >= 0 ? colors.pos : colors.neg;
-          const rgb = lerpRgb(colors.zero, target, mix);
+          let rgb = lerpRgb(colors.zero, target, mix);
 
-          const alpha = Math.round(alphaMin + (alphaMax - alphaMin) * Math.pow(mag, gamma));
+          // Highlight very strong regions (keeps detail even when auto-scaled).
+          if (over > 0) {
+            rgb = lerpRgb(rgb, { r: 255, g: 255, b: 255 }, over * 0.45);
+          }
+
+          let alpha = Math.round(alphaMin + (alphaMax - alphaMin) * Math.pow(mag, alphaGamma));
+          alpha = clamp(alpha + Math.round(42 * over), 0, 255);
 
           const p = i * 4;
           data[p + 0] = clamp(Math.round(rgb.r), 0, 255);

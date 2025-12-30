@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import Button from './ui/Button';
 import Checkbox from './ui/Checkbox';
 import ScrollArea from './ui/ScrollArea';
@@ -79,6 +79,39 @@ type Props = {
 };
 
 export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
+  const [infoOpen, setInfoOpen] = useState(false);
+
+  useEffect(() => {
+    if (!infoOpen) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Capture so this runs before App-level shortcuts.
+      const key = e.key.toLowerCase();
+
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setInfoOpen(false);
+        return;
+      }
+
+      // Block simulation shortcuts while the modal is open.
+      if (e.code === 'Space' || e.code === 'Enter' || key === 'r' || key === 'c') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, { capture: true });
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [infoOpen]);
+
   const densityPercent = useMemo(() => Math.round(game.settings.density * 100), [game.settings.density]);
   const lakeNoisePercent = useMemo(() => Math.round(game.settings.lakeNoiseIntensity * 100), [game.settings.lakeNoiseIntensity]);
   const annihilationBurstPercent = useMemo(
@@ -109,14 +142,124 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
 
   return (
     <aside className="h-full min-h-0 min-w-0 w-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)] md:min-w-[450px]">
+      {infoOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Ontologický základ"
+        >
+          <div
+            className="absolute inset-0 bg-black/60"
+            onMouseDown={() => setInfoOpen(false)}
+            aria-hidden="true"
+          />
+
+          <div
+            className="relative w-full max-w-[780px] overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--panel-border)] p-4">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold">Ontologický základ</div>
+                <div className="mt-0.5 text-xs opacity-70">Zhrnutie rámca „dynamické časopriestorové médium“</div>
+              </div>
+              <Button className="h-9 w-9 rounded-full p-0" onClick={() => setInfoOpen(false)} aria-label="Zavrieť">
+                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                  <path
+                    d="M6 6L18 18M18 6L6 18"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </Button>
+            </div>
+
+            <ScrollArea className="max-h-[72vh]">
+              <div className="space-y-4 p-4 text-sm leading-6">
+                <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3 text-xs opacity-90">
+                  Táto hra je vizuálna simulácia inšpirovaná ontologickým rámcom, v ktorom sú hmota,
+                  interakcie a „časopriestor“ emergentné režimy jedného dynamického média. Nejde o dôkaz
+                  ani fyzikálnu predpoveď; je to nástroj na intuitívne skúmanie prahov, pamäte a excitácií.
+                </div>
+
+                <div className="space-y-2">
+                  <SectionTitle>Postulát média</SectionTitle>
+                  <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">
+                    <ul className="list-disc space-y-1 pl-5 text-sm">
+                      <li>Existuje jediné fundamentálne médium: dynamické, kontinuálne, nelineárne a s pamäťou.</li>
+                      <li>Globálny stav média je primárny; lokálne stavy sú projekcie jeho usporiadania.</li>
+                      <li>Separovateľnosť je aproximácia platná len v niektorých režimoch.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <SectionTitle>Čas, priestor, excitácie</SectionTitle>
+                  <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">
+                    <ul className="list-disc space-y-1 pl-5 text-sm">
+                      <li>Čas je miera zmeny globálneho stavu média; priestor je vzťahová štruktúra stupňov voľnosti.</li>
+                      <li>„Častice“ nie sú vložené objekty: sú stabilné režimy správania média (procesy).</li>
+                      <li>Fluktuácie môžu prekročiť kritický prah a stabilizovať sa (v UI: <span className="font-semibold">Prah nukleácie</span>).</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <SectionTitle>Antihmota a anihilácia</SectionTitle>
+                  <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">
+                    <ul className="list-disc space-y-1 pl-5 text-sm">
+                      <li>Ak excitácie nesú orientovaný/topologický znak, antičastica je ten istý režim s opačnou orientáciou.</li>
+                      <li>Anihilácia je zánik stabilného režimu a rekonfigurácia média: energia sa vracia do poľa.</li>
+                      <li>V tejto simulácii sa to prejavuje impulzným budením média pri lokálnych udalostiach.</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <SectionTitle>Poznámka k simulácii</SectionTitle>
+                  <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">
+                    <ul className="list-disc space-y-1 pl-5 text-sm">
+                      <li>Farebné „more“ zobrazuje podpísanú polaritu vlnového poľa (kladnú aj zápornú zložku).</li>
+                      <li>„Hopkanie“ je modelované ako periodické lokálne dopady (impulzy) viazané na zdroje, nie ako globálny sínusový flip.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+          </div>
+        </div>
+      ) : null}
+
       <ScrollArea className="h-full w-full">
         <div className="w-full min-w-0 space-y-4 p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="text-base font-semibold leading-6">Conwayova Hra života</h1>
-               <p className="mt-0.5 text-xs opacity-70">Médium + kreslenie do mriežky</p>
+              <h1 className="text-base font-semibold leading-6">Časopriestorové médium</h1>
+              <p className="mt-0.5 text-xs opacity-70">Hra života + excitácie (hmota/antihmota)</p>
             </div>
             <div className="shrink-0 flex items-center gap-2">
+              <Tooltip label="Ontologický základ">
+                <Button
+                  className="h-9 w-9 rounded-full p-0"
+                  onClick={() => setInfoOpen(true)}
+                  aria-label="Info"
+                  aria-haspopup="dialog"
+                  aria-expanded={infoOpen}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                    <path
+                      d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    />
+                    <path d="M12 10v7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M12 7.25h.01" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                </Button>
+              </Tooltip>
+
               <span className="inline-flex rounded-full border border-[var(--pill-border)] bg-[var(--field)] px-2 py-1 text-xs font-medium opacity-90">
                 {game.running ? 'Running' : 'Paused'}
               </span>

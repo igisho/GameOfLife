@@ -1,6 +1,6 @@
-# Conoway
+# Časopriestorové médium (Conoway)
 
-Conwayova Hra života (Game of Life) s „šumením“ – malé React SPA, ktoré rendruje mriežku do `<canvas>` a ovláda simuláciu cez bočný panel.
+Hra života (Game of Life) rozšírená o vizuálne „médium“: vlnové pole s pamäťou, prahovou nukleáciou a (experimentálnou) antihmotou. React SPA rendruje mriežku do `<canvas>` a ovláda simuláciu cez bočný panel.
 
 ## Tech stack
 
