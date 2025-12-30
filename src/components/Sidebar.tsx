@@ -72,13 +72,10 @@ type Props = {
   game: UseGameOfLifeResult;
   theme: ThemeName;
   setTheme: (t: ThemeName) => void;
-  onPlaceGlider: () => void;
-  onPlacePulsar: () => void;
-  onPlaceGun: () => void;
   onHide: () => void;
 };
 
-export default function Sidebar({ game, theme, setTheme, onPlaceGlider, onPlacePulsar, onPlaceGun, onHide }: Props) {
+export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
   const densityPercent = useMemo(() => Math.round(game.settings.density * 100), [game.settings.density]);
   const lakeNoisePercent = useMemo(() => Math.round(game.settings.lakeNoiseIntensity * 100), [game.settings.lakeNoiseIntensity]);
   const annihilationBurstPercent = useMemo(
@@ -151,20 +148,6 @@ export default function Sidebar({ game, theme, setTheme, onPlaceGlider, onPlaceP
             </div>
           </div>
 
-          <div className="space-y-2">
-            <SectionTitle>Vzory</SectionTitle>
-            <div className="grid grid-cols-3 gap-2">
-              <Button className="h-10" onClick={onPlaceGlider}>
-                Glider
-              </Button>
-              <Button className="h-10" onClick={onPlacePulsar}>
-                Pulsar
-              </Button>
-              <Button className="h-10" onClick={onPlaceGun}>
-                Gosper gun
-              </Button>
-            </div>
-          </div>
 
           <div className="space-y-2">
             <SectionTitle>Simulácia</SectionTitle>

@@ -45,7 +45,6 @@ export type UseGameOfLifeResult = {
   clearAll: () => void;
   randomize: () => void;
 
-  centerPlace: (pattern: string[]) => void;
   paintCell: (r: number, c: number, mode: PaintMode) => void;
   nucleateCells: (cells: Array<[number, number]>) => void;
   nucleateAntiCells: (cells: Array<[number, number]>) => void;
@@ -270,54 +269,6 @@ export function useGameOfLife(): UseGameOfLifeResult {
     bumpDraw();
   }, [bumpDraw]);
 
-  const placePattern = useCallback(
-    (pattern: string[], top: number, left: number) => {
-      const s = settingsRef.current;
-
-      const addLive = (r: number, c: number) => {
-        let rr = r;
-        let cc = c;
-        if (s.wrap) {
-          rr = (rr + s.rows) % s.rows;
-          cc = (cc + s.cols) % s.cols;
-        } else {
-          if (rr < 0 || rr >= s.rows || cc < 0 || cc >= s.cols) return;
-        }
-
-        liveRef.current.add(keyOf(s.cols, rr, cc));
-      };
-
-      for (let pr = 0; pr < pattern.length; pr++) {
-        const line = pattern[pr];
-        for (let pc = 0; pc < line.length; pc++) {
-          if (line[pc] !== '#') continue;
-          addLive(top + pr, left + pc);
-        }
-      }
-
-      const events: number[] = [];
-      annihilateOverlap(liveRef.current, antiLiveRef.current, events);
-      recordAnnihilations(events);
-
-      setLiveCount(liveRef.current.size);
-      setAntiLiveCount(antiLiveRef.current.size);
-      bumpDraw();
-    },
-    [bumpDraw, recordAnnihilations]
-  );
-
-  const centerPlace = useCallback(
-    (pattern: string[]) => {
-      const s = settingsRef.current;
-      const h = pattern.length;
-      const w = Math.max(...pattern.map((line) => line.length));
-      const top = Math.floor((s.rows - h) / 2);
-      const left = Math.floor((s.cols - w) / 2);
-      placePattern(pattern, top, left);
-    },
-    [placePattern]
-  );
- 
   const paintCell = useCallback(
     (r: number, c: number, mode: PaintMode) => {
       const s = settingsRef.current;
@@ -475,7 +426,6 @@ export function useGameOfLife(): UseGameOfLifeResult {
       clearAll,
       randomize,
 
-      centerPlace,
       paintCell,
       nucleateCells,
       nucleateAntiCells,
@@ -518,7 +468,6 @@ export function useGameOfLife(): UseGameOfLifeResult {
       setAnnihilationBurstPercent: (percent) => updateSettings({ annihilationBurst: clamp(percent / 100, 0, 1) }),
     }),
     [
-      centerPlace,
       clearAll,
       drawNonce,
       generation,

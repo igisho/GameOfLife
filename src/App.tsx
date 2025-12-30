@@ -33,7 +33,6 @@ function formatSigned(x: number) {
 import LifeCanvas from './components/LifeCanvas';
 import Sidebar from './components/Sidebar';
 import Button from './components/ui/Button';
-import { GOSPER_GUN, GLIDER, PULSAR } from './game/patterns';
 import { useGameOfLife } from './game/useGameOfLife';
 import { cn } from './lib/cn';
 import { applyTheme, type ThemeName } from './lib/themes';
@@ -245,9 +244,6 @@ export default function App() {
               game={game}
               theme={theme}
               setTheme={setTheme}
-              onPlaceGlider={() => game.centerPlace(GLIDER)}
-              onPlacePulsar={() => game.centerPlace(PULSAR)}
-              onPlaceGun={() => game.centerPlace(GOSPER_GUN)}
               onHide={() => setSidebarOpen(false)}
             />
           </div>
