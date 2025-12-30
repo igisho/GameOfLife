@@ -20,6 +20,8 @@ export const THEMES: Record<ThemeName, Record<string, string>> = {
     '--kbd-border': '#2b3b59',
     '--cell': '#e8eef6',
     '--grid': '#2b3b59',
+    '--wave-pos': '#7c9cff',
+    '--wave-neg': '#ff4fd8',
   },
   light: {
     '--bg': '#f6f7fb',
@@ -40,6 +42,8 @@ export const THEMES: Record<ThemeName, Record<string, string>> = {
     '--kbd-border': '#9aa8d2',
     '--cell': '#0b1220',
     '--grid': '#c5cbe0',
+    '--wave-pos': '#2a5bd7',
+    '--wave-neg': '#ff4fd8',
   },
   matrix: {
     '--bg': '#050a06',
@@ -60,6 +64,8 @@ export const THEMES: Record<ThemeName, Record<string, string>> = {
     '--kbd-border': '#1a5a33',
     '--cell': '#35ff7a',
     '--grid': '#0f3b21',
+    '--wave-pos': '#35ff7a',
+    '--wave-neg': '#19b35a',
   },
   solarized: {
     '--bg': '#002b36',
@@ -80,6 +86,8 @@ export const THEMES: Record<ThemeName, Record<string, string>> = {
     '--kbd-border': '#1b5663',
     '--cell': '#b8f3ff',
     '--grid': '#0b4a58',
+    '--wave-pos': '#2aa3f4',
+    '--wave-neg': '#cb4b16',
   },
   neon: {
     '--bg': '#070512',
@@ -100,6 +108,8 @@ export const THEMES: Record<ThemeName, Record<string, string>> = {
     '--kbd-border': '#3a2a7a',
     '--cell': '#7cf7ff',
     '--grid': '#2a1b5a',
+    '--wave-pos': '#7cf7ff',
+    '--wave-neg': '#ff4fd8',
   },
 };
 

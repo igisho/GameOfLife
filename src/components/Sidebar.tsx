@@ -80,7 +80,17 @@ type Props = {
 
 export default function Sidebar({ game, theme, setTheme, onPlaceGlider, onPlacePulsar, onPlaceGun, onHide }: Props) {
   const densityPercent = useMemo(() => Math.round(game.settings.density * 100), [game.settings.density]);
-  const noisePercent = useMemo(() => Math.round(game.settings.noiseIntensity * 100), [game.settings.noiseIntensity]);
+  const cellNoisePercent = useMemo(() => Math.round(game.settings.noiseIntensity * 100), [game.settings.noiseIntensity]);
+  const lakeNoisePercent = useMemo(() => Math.round(game.settings.lakeNoiseIntensity * 100), [game.settings.lakeNoiseIntensity]);
+  const hopHz = useMemo(() => Math.round(game.settings.hopHz * 10) / 10, [game.settings.hopHz]);
+  const hopStrengthPercent = useMemo(
+    () => Math.round(game.settings.hopStrength * 100),
+    [game.settings.hopStrength]
+  );
+  const nucleationThreshold = useMemo(
+    () => Math.round(game.settings.nucleationThreshold * 100) / 100,
+    [game.settings.nucleationThreshold]
+  );
 
   return (
     <aside className="h-full min-h-0 min-w-0 w-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg shadow-black/20 md:min-w-[450px]">
@@ -170,24 +180,95 @@ export default function Sidebar({ game, theme, setTheme, onPlaceGlider, onPlaceP
           </div>
 
           <div className="space-y-2">
-            <SectionTitle>Šumenie</SectionTitle>
+            <SectionTitle>Médium</SectionTitle>
             <Card>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={game.settings.noiseEnabled} onCheckedChange={(v) => game.setNoiseEnabled(Boolean(v))} />
-                <span>Šumenie počas hry</span>
+              <div className="text-xs font-medium opacity-90">Režim</div>
+              <div className="mt-2">
+                <Select value={game.settings.mediumMode} onValueChange={(v) => game.setMediumMode(v as typeof game.settings.mediumMode)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Vyber" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="off">Vypnuté</SelectItem>
+                    <SelectItem value="visual">A: vlny (bez nukleácie)</SelectItem>
+                    <SelectItem value="nucleation">B: nukleácia z média</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="mt-3">
+                <div className="text-xs font-medium opacity-90">
+                  Frekvencia hopkania: <span className="font-semibold">{hopHz} Hz</span>
+                </div>
+                <div className="mt-2">
+                  <Slider
+                    value={[hopHz]}
+                    min={0}
+                    max={20}
+                    step={0.1}
+                    onValueChange={(v) => game.setHopHz(v[0] ?? hopHz)}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <div className="text-xs font-medium opacity-90">
+                  Vplyv bunky na médium: <span className="font-semibold">{hopStrengthPercent}%</span>
+                </div>
+                <div className="mt-2">
+                  <Slider
+                    value={[hopStrengthPercent]}
+                    min={0}
+                    max={300}
+                    step={1}
+                    onValueChange={(v) => game.setHopStrength((v[0] ?? hopStrengthPercent) / 100)}
+                  />
+                </div>
+              </div>
+
+              {game.settings.mediumMode === 'nucleation' ? (
+                <div className="mt-3">
+                  <div className="text-xs font-medium opacity-90">
+                    Prah nukleácie: <span className="font-semibold">{nucleationThreshold}</span>
+                  </div>
+                  <div className="mt-2">
+                    <Slider
+                      value={[nucleationThreshold]}
+                      min={0.05}
+                      max={1}
+                      step={0.01}
+                      onValueChange={(v) => game.setNucleationThreshold(v[0] ?? nucleationThreshold)}
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </Card>
+          </div>
+
+          <div className="space-y-2">
+            <SectionTitle>Šumenie buniek</SectionTitle>
+            <Card>
+              <label className={`flex items-center gap-2 text-sm ${game.settings.mediumMode === 'nucleation' ? 'opacity-50' : ''}`}>
+                <Checkbox
+                  checked={game.settings.noiseEnabled}
+                  disabled={game.settings.mediumMode === 'nucleation'}
+                  onCheckedChange={(v) => game.setNoiseEnabled(Boolean(v))}
+                />
+                <span>Šumenie počas hry (v bunke)</span>
               </label>
 
               <div className="mt-3">
                 <div className="text-xs font-medium opacity-90">
-                  Intenzita šumenia: <span className="font-semibold">{noisePercent}%</span>
+                  Intenzita: <span className="font-semibold">{cellNoisePercent}%</span>
                 </div>
                 <div className="mt-2">
                   <Slider
-                    value={[noisePercent]}
+                    value={[cellNoisePercent]}
                     min={0}
                     max={100}
                     step={1}
-                    onValueChange={(v) => game.setNoiseIntensityPercent(v[0] ?? noisePercent)}
+                    disabled={game.settings.mediumMode === 'nucleation'}
+                    onValueChange={(v) => game.setNoiseIntensityPercent(v[0] ?? cellNoisePercent)}
                   />
                 </div>
               </div>
@@ -202,6 +283,7 @@ export default function Sidebar({ game, theme, setTheme, onPlaceGlider, onPlaceP
                     min={1}
                     max={12}
                     step={1}
+                    disabled={game.settings.mediumMode === 'nucleation'}
                     onValueChange={(v) => game.setBlobSize(v[0] ?? game.settings.blobSize)}
                   />
                 </div>
@@ -210,7 +292,66 @@ export default function Sidebar({ game, theme, setTheme, onPlaceGlider, onPlaceP
               <div className="mt-3">
                 <div className="text-xs font-medium opacity-90">Tvar objektu</div>
                 <div className="mt-2">
-                  <Select value={game.settings.blobShape} onValueChange={(v) => game.setBlobShape(v as typeof game.settings.blobShape)}>
+                  <Select
+                    value={game.settings.blobShape}
+                    disabled={game.settings.mediumMode === 'nucleation'}
+                    onValueChange={(v) => game.setBlobShape(v as typeof game.settings.blobShape)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Vyber" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="square">Štvorec</SelectItem>
+                      <SelectItem value="circle">Kruh</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          <div className="space-y-2">
+            <SectionTitle>Šum jazera</SectionTitle>
+            <Card>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={game.settings.lakeNoiseEnabled} onCheckedChange={(v) => game.setLakeNoiseEnabled(Boolean(v))} />
+                <span>Ambientný šum jazera</span>
+              </label>
+
+              <div className="mt-3">
+                <div className="text-xs font-medium opacity-90">
+                  Intenzita: <span className="font-semibold">{lakeNoisePercent}%</span>
+                </div>
+                <div className="mt-2">
+                  <Slider
+                    value={[lakeNoisePercent]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onValueChange={(v) => game.setLakeNoiseIntensityPercent(v[0] ?? lakeNoisePercent)}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <div className="text-xs font-medium opacity-90">
+                  Veľkosť šumu (px buniek): <span className="font-semibold">{game.settings.lakeBlobSize}</span>
+                </div>
+                <div className="mt-2">
+                  <Slider
+                    value={[game.settings.lakeBlobSize]}
+                    min={1}
+                    max={12}
+                    step={1}
+                    onValueChange={(v) => game.setLakeBlobSize(v[0] ?? game.settings.lakeBlobSize)}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <div className="text-xs font-medium opacity-90">Tvar šumu</div>
+                <div className="mt-2">
+                  <Select value={game.settings.lakeBlobShape} onValueChange={(v) => game.setLakeBlobShape(v as typeof game.settings.lakeBlobShape)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Vyber" />
                     </SelectTrigger>

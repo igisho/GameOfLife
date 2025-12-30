@@ -32,6 +32,7 @@ export type UseGameOfLifeResult = {
 
   centerPlace: (pattern: string[]) => void;
   paintCell: (r: number, c: number, mode: PaintMode) => void;
+  nucleateCells: (cells: Array<[number, number]>) => void;
 
   setRows: (rows: number) => void;
   setCols: (cols: number) => void;
@@ -43,10 +44,20 @@ export type UseGameOfLifeResult = {
   setSpeedMs: (speedMs: number) => void;
   setDensityPercent: (densityPercent: number) => void;
 
+  setMediumMode: (mode: GameSettings['mediumMode']) => void;
+  setHopHz: (hz: number) => void;
+  setHopStrength: (strength: number) => void;
+  setNucleationThreshold: (threshold: number) => void;
+
   setNoiseEnabled: (enabled: boolean) => void;
   setNoiseIntensityPercent: (noisePercent: number) => void;
   setBlobSize: (blobSize: number) => void;
   setBlobShape: (shape: GameSettings['blobShape']) => void;
+
+  setLakeNoiseEnabled: (enabled: boolean) => void;
+  setLakeNoiseIntensityPercent: (noisePercent: number) => void;
+  setLakeBlobSize: (blobSize: number) => void;
+  setLakeBlobShape: (shape: GameSettings['lakeBlobShape']) => void;
 };
 
 export function useGameOfLife(): UseGameOfLifeResult {
@@ -58,10 +69,23 @@ export function useGameOfLife(): UseGameOfLifeResult {
     showGrid: true,
     speedMs: 80,
     density: 0.02,
+
+    mediumMode: 'nucleation',
+    hopHz: 4,
+    hopStrength: 1,
+    nucleationThreshold: 0.25,
+
+    // Cell noise (old behavior)
     noiseEnabled: true,
     noiseIntensity: 0.1,
     blobSize: 4,
     blobShape: 'square',
+
+    // Lake noise (new background agitation)
+    lakeNoiseEnabled: true,
+    lakeNoiseIntensity: 0.04,
+    lakeBlobSize: 4,
+    lakeBlobShape: 'circle',
   });
 
   const settingsRef = useRef(settings);
@@ -110,7 +134,9 @@ export function useGameOfLife(): UseGameOfLifeResult {
       liveRef.current.add(keyOf(s.cols, rr, cc));
     };
 
-    const applyNoise = () => {
+    const applyCellNoise = () => {
+      // In nucleation mode, "birth" should come from the medium, not from direct cell noise.
+      if (s.mediumMode === 'nucleation') return;
       if (!s.noiseEnabled) return;
       const p = clamp(s.noiseIntensity, 0, 1);
       if (p <= 0) return;
@@ -151,9 +177,10 @@ export function useGameOfLife(): UseGameOfLifeResult {
       }
     };
 
-    applyNoise();
+    applyCellNoise();
 
     const counts = new Map<number, number>();
+
 
     const addCount = (r: number, c: number) => {
       let rr = r;
@@ -309,19 +336,50 @@ export function useGameOfLife(): UseGameOfLifeResult {
     [bumpDraw]
   );
 
+  const nucleateCells = useCallback(
+    (cells: Array<[number, number]>) => {
+      if (cells.length === 0) return;
+      const s = settingsRef.current;
+
+      for (const [r, c] of cells) {
+        let rr = r;
+        let cc = c;
+        if (s.wrap) {
+          rr = (rr + s.rows) % s.rows;
+          cc = (cc + s.cols) % s.cols;
+        } else {
+          if (rr < 0 || rr >= s.rows || cc < 0 || cc >= s.cols) continue;
+        }
+        liveRef.current.add(keyOf(s.cols, rr, cc));
+      }
+
+      setLiveCount(liveRef.current.size);
+      bumpDraw();
+    },
+    [bumpDraw]
+  );
+
   const updateSettings = useCallback((patch: Partial<GameSettings>) => {
     const prev = settingsRef.current;
 
     const next: GameSettings = {
       ...prev,
       ...patch,
-      rows: clamp(Number(patch.rows ?? prev.rows) || prev.rows, 10, 1000),
-      cols: clamp(Number(patch.cols ?? prev.cols) || prev.cols, 10, 1000),
-      cellSize: clamp(Number(patch.cellSize ?? prev.cellSize) || prev.cellSize, 4, 20),
-      speedMs: clamp(Number(patch.speedMs ?? prev.speedMs) || prev.speedMs, 10, 400),
-      density: clamp(Number(patch.density ?? prev.density) || prev.density, 0, 1),
-      noiseIntensity: clamp(Number(patch.noiseIntensity ?? prev.noiseIntensity) || prev.noiseIntensity, 0, 1),
-      blobSize: clamp(Number(patch.blobSize ?? prev.blobSize) || prev.blobSize, 1, 20),
+      rows: clamp(Number(patch.rows ?? prev.rows), 10, 1000),
+      cols: clamp(Number(patch.cols ?? prev.cols), 10, 1000),
+      cellSize: clamp(Number(patch.cellSize ?? prev.cellSize), 4, 20),
+      speedMs: clamp(Number(patch.speedMs ?? prev.speedMs), 10, 400),
+      density: clamp(Number(patch.density ?? prev.density), 0, 1),
+
+      hopHz: clamp(Number(patch.hopHz ?? prev.hopHz), 0, 20),
+      hopStrength: clamp(Number(patch.hopStrength ?? prev.hopStrength), 0, 3),
+      nucleationThreshold: clamp(Number(patch.nucleationThreshold ?? prev.nucleationThreshold), 0.01, 2),
+
+      noiseIntensity: clamp(Number(patch.noiseIntensity ?? prev.noiseIntensity), 0, 1),
+      blobSize: clamp(Number(patch.blobSize ?? prev.blobSize), 1, 20),
+
+      lakeNoiseIntensity: clamp(Number(patch.lakeNoiseIntensity ?? prev.lakeNoiseIntensity), 0, 1),
+      lakeBlobSize: clamp(Number(patch.lakeBlobSize ?? prev.lakeBlobSize), 1, 20),
     };
 
     const colsChanged = next.cols !== prev.cols;
@@ -362,6 +420,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
 
       centerPlace,
       paintCell,
+      nucleateCells,
 
       setRows: (rows) => updateSettings({ rows }),
       setCols: (cols) => updateSettings({ cols }),
@@ -373,10 +432,34 @@ export function useGameOfLife(): UseGameOfLifeResult {
       setSpeedMs: (speedMs) => updateSettings({ speedMs }),
       setDensityPercent: (densityPercent) => updateSettings({ density: clamp(densityPercent / 100, 0, 1) }),
 
+      setMediumMode: (mode) => {
+        const prev = settingsRef.current;
+        const patch: Partial<GameSettings> = { mediumMode: mode };
+
+        if (mode === 'nucleation') {
+          patch.noiseEnabled = false;
+          patch.lakeNoiseEnabled = true;
+          if (prev.lakeNoiseIntensity <= 0) patch.lakeNoiseIntensity = 0.08;
+        }
+
+        // If leaving nucleation mode, do not auto-reenable cell noise; user can opt-in.
+
+        updateSettings(patch);
+      },
+      setHopHz: (hz) => updateSettings({ hopHz: hz }),
+      setHopStrength: (strength) => updateSettings({ hopStrength: strength }),
+      setNucleationThreshold: (threshold) => updateSettings({ nucleationThreshold: threshold }),
+
       setNoiseEnabled: (enabled) => updateSettings({ noiseEnabled: enabled }),
       setNoiseIntensityPercent: (noisePercent) => updateSettings({ noiseIntensity: clamp(noisePercent / 100, 0, 1) }),
       setBlobSize: (blobSize) => updateSettings({ blobSize }),
       setBlobShape: (shape) => updateSettings({ blobShape: shape }),
+
+      setLakeNoiseEnabled: (enabled) => updateSettings({ lakeNoiseEnabled: enabled }),
+      setLakeNoiseIntensityPercent: (noisePercent) =>
+        updateSettings({ lakeNoiseIntensity: clamp(noisePercent / 100, 0, 1) }),
+      setLakeBlobSize: (blobSize) => updateSettings({ lakeBlobSize: blobSize }),
+      setLakeBlobShape: (shape) => updateSettings({ lakeBlobShape: shape }),
     }),
     [
       centerPlace,
@@ -384,6 +467,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
       drawNonce,
       generation,
       liveCount,
+      nucleateCells,
       paintCell,
       randomize,
       running,

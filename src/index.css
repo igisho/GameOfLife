@@ -24,6 +24,10 @@
   --kbd-border: #2b3b59;
   --cell: #e8eef6;
   --grid: #2b3b59;
+
+  /* Wave (background medium) */
+  --wave-pos: #7c9cff;
+  --wave-neg: #ff4fd8;
 }
 
 html,

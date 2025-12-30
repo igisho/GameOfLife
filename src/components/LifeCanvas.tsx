@@ -1,4 +1,4 @@
-import { type MutableRefObject, type MouseEvent, useCallback, useEffect, useRef } from 'react';
+import { type MutableRefObject, type MouseEvent, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ThemeName } from '../lib/themes';
 import { readCssVar } from '../lib/themes';
 import type { GameSettings, PaintMode } from '../game/types';
@@ -9,35 +9,293 @@ type Props = {
   generation: number;
   drawNonce: number;
   theme: ThemeName;
+  running: boolean;
   onPaintCell: (r: number, c: number, mode: PaintMode) => void;
+  onNucleateCells: (cells: Array<[number, number]>) => void;
+  onMediumAvgAmplitude: (avg: number) => void;
 };
+
+function clamp(x: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, x));
+}
 
 function keyToRc(cols: number, key: number) {
   return [Math.floor(key / cols), key % cols] as const;
 }
 
-export default function LifeCanvas({ settings, liveRef, generation, drawNonce, theme, onPaintCell }: Props) {
+type Rgb = { r: number; g: number; b: number };
+
+function parseCssColor(input: string): Rgb {
+  const s = input.trim();
+  if (s.startsWith('#')) {
+    const hex = s.slice(1);
+    if (hex.length === 3) {
+      const r = parseInt(hex[0] + hex[0], 16);
+      const g = parseInt(hex[1] + hex[1], 16);
+      const b = parseInt(hex[2] + hex[2], 16);
+      return { r, g, b };
+    }
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return { r, g, b };
+    }
+  }
+
+  const rgbMatch = s.match(/rgba?\(([^)]+)\)/i);
+  if (rgbMatch) {
+    const parts = rgbMatch[1]
+      .split(',')
+      .map((p) => p.trim())
+      .map((p) => Number(p));
+    const r = clamp(parts[0] ?? 0, 0, 255);
+    const g = clamp(parts[1] ?? 0, 0, 255);
+    const b = clamp(parts[2] ?? 0, 0, 255);
+    return { r, g, b };
+  }
+
+  return { r: 255, g: 255, b: 255 };
+}
+
+function chooseWaveResolution(rows: number, cols: number) {
+  // Downsample grid for performance; keep roughly proportional.
+  const w = clamp(Math.floor(cols / 4), 160, 512);
+  const h = clamp(Math.floor(rows / 4), 160, 512);
+  return { w, h };
+}
+
+type WaveState = {
+  w: number;
+  h: number;
+  uPrev: Float32Array;
+  uCurr: Float32Array;
+  uNext: Float32Array;
+  lap1: Float32Array;
+  lap2: Float32Array;
+  source: Float32Array;
+  cooldown: Uint16Array;
+  visited: Uint8Array;
+  imageData: ImageData;
+  phase: number;
+  lastTs: number;
+  scanOffset: number;
+  lastMetricTs: number;
+};
+
+function idxOf(w: number, x: number, y: number) {
+  return y * w + x;
+}
+
+function laplacianInto({ w, h, wrap }: { w: number; h: number; wrap: boolean }, src: Float32Array, out: Float32Array) {
+  for (let y = 0; y < h; y++) {
+    const ym1 = y - 1;
+    const yp1 = y + 1;
+    const yUp = wrap ? (ym1 + h) % h : Math.max(0, ym1);
+    const yDown = wrap ? yp1 % h : Math.min(h - 1, yp1);
+
+    for (let x = 0; x < w; x++) {
+      const xm1 = x - 1;
+      const xp1 = x + 1;
+      const xLeft = wrap ? (xm1 + w) % w : Math.max(0, xm1);
+      const xRight = wrap ? xp1 % w : Math.min(w - 1, xp1);
+
+      const i = idxOf(w, x, y);
+      const center = src[i];
+      const left = src[idxOf(w, xLeft, y)];
+      const right = src[idxOf(w, xRight, y)];
+      const up = src[idxOf(w, x, yUp)];
+      const down = src[idxOf(w, x, yDown)];
+      out[i] = left + right + up + down - 4 * center;
+    }
+  }
+}
+
+function injectAmbientNoise(state: WaveState, settings: GameSettings, wrap: boolean) {
+  if (!settings.lakeNoiseEnabled) return;
+
+  const intensity = clamp(settings.lakeNoiseIntensity, 0, 1);
+  if (intensity <= 0) return;
+
+  const area = state.w * state.h;
+  const base = area / 4096;
+  const blobs = Math.max(0, Math.floor(intensity * 1.5 * base + (Math.random() < intensity * 0.2 ? 1 : 0)));
+  if (blobs <= 0) return;
+
+  const size = clamp(settings.lakeBlobSize, 1, 20);
+  // Tuned so low intensities still show up after color/alpha mapping.
+  const amplitude = 0.4 * intensity;
+
+  for (let b = 0; b < blobs; b++) {
+    const cx = Math.floor(Math.random() * state.w);
+    const cy = Math.floor(Math.random() * state.h);
+    const sign = Math.random() < 0.5 ? -1 : 1;
+
+    if (settings.lakeBlobShape === 'circle') {
+      const radius = size;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (dx * dx + dy * dy > radius * radius) continue;
+          const x = wrap ? (cx + dx + state.w) % state.w : clamp(cx + dx, 0, state.w - 1);
+          const y = wrap ? (cy + dy + state.h) % state.h : clamp(cy + dy, 0, state.h - 1);
+          const i = idxOf(state.w, x, y);
+          state.uCurr[i] += sign * amplitude;
+        }
+      }
+    } else {
+      for (let dy = 0; dy < size; dy++) {
+        for (let dx = 0; dx < size; dx++) {
+          const x = wrap ? (cx + dx) % state.w : clamp(cx + dx, 0, state.w - 1);
+          const y = wrap ? (cy + dy) % state.h : clamp(cy + dy, 0, state.h - 1);
+          const i = idxOf(state.w, x, y);
+          state.uCurr[i] += sign * amplitude;
+        }
+      }
+    }
+  }
+}
+
+export default function LifeCanvas({
+  settings,
+  liveRef,
+  generation,
+  drawNonce,
+  theme,
+  running,
+  onPaintCell,
+  onNucleateCells,
+  onMediumAvgAmplitude,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+
+  const waveCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const waveCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const waveStateRef = useRef<WaveState | null>(null);
 
   const paintingRef = useRef(false);
   const paintModeRef = useRef<PaintMode>('add');
 
+  const latestSettingsRef = useRef(settings);
+  useEffect(() => {
+    latestSettingsRef.current = settings;
+  }, [settings]);
+
+  const runningRef = useRef(running);
+  useEffect(() => {
+    runningRef.current = running;
+  }, [running]);
+
+  const onMediumAvgAmplitudeRef = useRef(onMediumAvgAmplitude);
+  useEffect(() => {
+    onMediumAvgAmplitudeRef.current = onMediumAvgAmplitude;
+  }, [onMediumAvgAmplitude]);
+
+  const waveColorsRef = useRef<{ pos: Rgb; neg: Rgb } | null>(null);
+
+  const canvasWidth = settings.cols * settings.cellSize;
+  const canvasHeight = settings.rows * settings.cellSize;
+
   const syncCanvasSize = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.width = settings.cols * settings.cellSize;
-    canvas.height = settings.rows * settings.cellSize;
-  }, [settings.cellSize, settings.cols, settings.rows]);
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+  }, [canvasHeight, canvasWidth]);
 
   const syncCanvasColors = useCallback(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
     ctx.fillStyle = readCssVar('--cell');
     ctx.strokeStyle = readCssVar('--grid');
+
+    waveColorsRef.current = {
+      pos: parseCssColor(readCssVar('--wave-pos')),
+      neg: parseCssColor(readCssVar('--wave-neg')),
+    };
   }, []);
 
-  const draw = useCallback(() => {
+  const syncWaveCanvasSize = useCallback(() => {
+    const canvas = waveCanvasRef.current;
+    const ctx = waveCtxRef.current;
+    if (!canvas || !ctx) return;
+
+    const { w, h } = chooseWaveResolution(settings.rows, settings.cols);
+    if (waveStateRef.current?.w === w && waveStateRef.current?.h === h) return;
+
+    canvas.width = w;
+    canvas.height = h;
+
+      waveStateRef.current = {
+        w,
+        h,
+        uPrev: new Float32Array(w * h),
+        uCurr: new Float32Array(w * h),
+        uNext: new Float32Array(w * h),
+        lap1: new Float32Array(w * h),
+        lap2: new Float32Array(w * h),
+        source: new Float32Array(w * h),
+        cooldown: new Uint16Array(w * h),
+        visited: new Uint8Array(w * h),
+        imageData: ctx.createImageData(w, h),
+        phase: 0,
+        lastTs: 0,
+        scanOffset: 0,
+        lastMetricTs: 0,
+      };
+
+  }, [settings.cols, settings.rows]);
+
+  const rebuildSourceMap = useCallback(() => {
+    const state = waveStateRef.current;
+    if (!state) return;
+
+    const w = state.w;
+    const h = state.h;
+
+    state.source.fill(0);
+
+    // Map living cells to downsampled grid.
+    for (const k of liveRef.current) {
+      const [r, c] = keyToRc(settings.cols, k);
+      const x = Math.floor((c / settings.cols) * w);
+      const y = Math.floor((r / settings.rows) * h);
+      if (x < 0 || x >= w || y < 0 || y >= h) continue;
+      state.source[idxOf(w, x, y)] += 1;
+    }
+
+    // Normalize so amplitude is stable across resolutions.
+    const cellAreaPerWavePixel = (settings.cols / w) * (settings.rows / h);
+    const inv = cellAreaPerWavePixel > 0 ? 1 / cellAreaPerWavePixel : 1;
+    for (let i = 0; i < state.source.length; i++) {
+      state.source[i] *= inv;
+    }
+
+    // Small blur so larger objects emit broader waves.
+    const tmp = state.lap1;
+    tmp.set(state.source);
+    for (let y = 0; y < h; y++) {
+      const ym1 = settings.wrap ? (y - 1 + h) % h : Math.max(0, y - 1);
+      const yp1 = settings.wrap ? (y + 1) % h : Math.min(h - 1, y + 1);
+      for (let x = 0; x < w; x++) {
+        const xm1 = settings.wrap ? (x - 1 + w) % w : Math.max(0, x - 1);
+        const xp1 = settings.wrap ? (x + 1) % w : Math.min(w - 1, x + 1);
+        const sum =
+          tmp[idxOf(w, xm1, ym1)] +
+          tmp[idxOf(w, x, ym1)] +
+          tmp[idxOf(w, xp1, ym1)] +
+          tmp[idxOf(w, xm1, y)] +
+          tmp[idxOf(w, x, y)] +
+          tmp[idxOf(w, xp1, y)] +
+          tmp[idxOf(w, xm1, yp1)] +
+          tmp[idxOf(w, x, yp1)] +
+          tmp[idxOf(w, xp1, yp1)];
+        state.source[idxOf(w, x, y)] = sum / 9;
+      }
+    }
+  }, [liveRef, settings.cols, settings.rows, settings.wrap]);
+
+  const drawCells = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = ctxRef.current;
     if (!canvas || !ctx) return;
@@ -76,33 +334,43 @@ export default function LifeCanvas({ settings, liveRef, generation, drawNonce, t
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const waveCanvas = waveCanvasRef.current;
+    if (!canvas || !waveCanvas) return;
 
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const waveCtx = waveCanvas.getContext('2d');
+    if (!ctx || !waveCtx) return;
 
     ctxRef.current = ctx;
+    waveCtxRef.current = waveCtx;
+
     syncCanvasSize();
     syncCanvasColors();
-    draw();
-  }, [draw, syncCanvasColors, syncCanvasSize]);
+    syncWaveCanvasSize();
+
+    rebuildSourceMap();
+    drawCells();
+  }, [drawCells, rebuildSourceMap, syncCanvasColors, syncCanvasSize, syncWaveCanvasSize]);
 
   useEffect(() => {
     syncCanvasSize();
-    draw();
-  }, [settings.rows, settings.cols, settings.cellSize, syncCanvasSize, draw]);
+    syncWaveCanvasSize();
+    rebuildSourceMap();
+    drawCells();
+  }, [settings.rows, settings.cols, settings.cellSize, syncCanvasSize, syncWaveCanvasSize, rebuildSourceMap, drawCells]);
 
   useEffect(() => {
     void theme;
     syncCanvasColors();
-    draw();
-  }, [theme, syncCanvasColors, draw]);
+    drawCells();
+  }, [theme, syncCanvasColors, drawCells]);
 
   useEffect(() => {
     void generation;
     void drawNonce;
-    draw();
-  }, [generation, drawNonce, draw]);
+    rebuildSourceMap();
+    drawCells();
+  }, [generation, drawNonce, rebuildSourceMap, drawCells]);
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -112,6 +380,305 @@ export default function LifeCanvas({ settings, liveRef, generation, drawNonce, t
     window.addEventListener('mouseup', handleMouseUp);
     return () => window.removeEventListener('mouseup', handleMouseUp);
   }, []);
+
+  useEffect(() => {
+    const ctx = waveCtxRef.current;
+    if (!ctx) return;
+
+    let frameId: number | null = null;
+
+    const step = (ts: number) => {
+      const state = waveStateRef.current;
+      const waveCanvas = waveCanvasRef.current;
+      if (!state || !ctx || !waveCanvas) {
+        frameId = window.requestAnimationFrame(step);
+        return;
+      }
+
+      const currentSettings = latestSettingsRef.current;
+      if (currentSettings.mediumMode === 'off') {
+        ctx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+        if (ts - state.lastMetricTs > 120) {
+          state.lastMetricTs = ts;
+          onMediumAvgAmplitudeRef.current(0);
+        }
+        state.lastTs = ts;
+        frameId = window.requestAnimationFrame(step);
+        return;
+      }
+
+      // Medium is governed by Play/Pause.
+      if (!runningRef.current) {
+        // Keep reporting metrics while paused (flat line).
+        if (ts - state.lastMetricTs > 120) {
+          state.lastMetricTs = ts;
+          let sum = 0;
+          let count = 0;
+          for (let i = 0; i < state.uCurr.length; i += 8) {
+            sum += state.uCurr[i] ?? 0;
+            count++;
+          }
+          onMediumAvgAmplitudeRef.current(count > 0 ? sum / count : 0);
+        }
+
+        state.lastTs = ts;
+        frameId = window.requestAnimationFrame(step);
+        return;
+      }
+
+      const wrap = currentSettings.wrap;
+
+      // Keep stable dt (explicit scheme); substep if needed.
+      const targetDt = 1 / 60;
+      const prevTs = state.lastTs || ts;
+      let dt = (ts - prevTs) / 1000;
+      dt = clamp(dt, 0, 0.05);
+      state.lastTs = ts;
+
+      const steps = Math.max(1, Math.min(4, Math.ceil(dt / targetDt)));
+      const hStep = dt / steps;
+
+      // Physical-ish defaults.
+      const c2 = 36; // wave speed^2 (in grid units)
+      const gamma = 2.2; // damping
+      const kappa = 2.0; // dispersion strength
+
+      const hopHz = clamp(currentSettings.hopHz, 0, 20);
+      const hopStrength = clamp(currentSettings.hopStrength, 0, 3);
+      const hopAmplitude = 0.08 * hopStrength;
+
+      for (let sub = 0; sub < steps; sub++) {
+        // Update phase for periodic forcing.
+        if (hopHz > 0) {
+          state.phase += 2 * Math.PI * hopHz * hStep;
+          if (state.phase > Math.PI * 8) state.phase = state.phase % (Math.PI * 2);
+        }
+
+        // Ambient background disturbances.
+        injectAmbientNoise(state, currentSettings, wrap);
+
+        laplacianInto({ w: state.w, h: state.h, wrap }, state.uCurr, state.lap1);
+        laplacianInto({ w: state.w, h: state.h, wrap }, state.lap1, state.lap2);
+
+        const dt2 = hStep * hStep;
+        const g = gamma;
+        const gFactor = g * hStep * 0.5;
+        const denom = 1 + gFactor;
+        const sinPhase = hopHz > 0 ? Math.sin(state.phase) : 0;
+        const forcingGain = 40;
+
+        for (let i = 0; i < state.uCurr.length; i++) {
+          const forcing = forcingGain * hopAmplitude * state.source[i] * sinPhase;
+          const rhs = c2 * state.lap1[i] - kappa * state.lap2[i] + forcing;
+          const next = (2 * state.uCurr[i] - state.uPrev[i] * (1 - gFactor) + dt2 * rhs) / denom;
+          state.uNext[i] = next;
+        }
+
+        // Rotate buffers.
+        const prev = state.uPrev;
+        state.uPrev = state.uCurr;
+        state.uCurr = state.uNext;
+        state.uNext = prev;
+
+        // Nucleation from medium (mode B): one nucleus per connected threshold-break region.
+        // We run it once per animation frame (on the last substep), otherwise it over-fires.
+        if (currentSettings.mediumMode === 'nucleation' && sub === steps - 1) {
+          const threshold = clamp(currentSettings.nucleationThreshold, 0.01, 2);
+          const cooldownFrames = Math.max(1, Math.round(0.6 * 60)); // ~600ms at 60fps
+
+          const maxNucleiPerFrame = 4;
+          const maxRadiusCells = 8;
+
+          state.visited.fill(0);
+
+          let nucleusCount = 0;
+          const nuclei: Array<[number, number]> = [];
+
+          const component: number[] = [];
+          const stack: number[] = [];
+
+          const w = state.w;
+          const h = state.h;
+
+          // Use a smoothed envelope |u| for nucleation so a ring-shaped crest yields
+          // a central nucleation site (matches the "source" intuition).
+          const driveA = state.lap1;
+          const driveB = state.lap2;
+
+          for (let i = 0; i < state.uCurr.length; i++) {
+            driveA[i] = Math.abs(state.uCurr[i]);
+          }
+
+          const blur3x3 = (src: Float32Array, dst: Float32Array) => {
+            for (let y = 0; y < h; y++) {
+              const ym1 = wrap ? (y - 1 + h) % h : Math.max(0, y - 1);
+              const yp1 = wrap ? (y + 1) % h : Math.min(h - 1, y + 1);
+              for (let x = 0; x < w; x++) {
+                const xm1 = wrap ? (x - 1 + w) % w : Math.max(0, x - 1);
+                const xp1 = wrap ? (x + 1) % w : Math.min(w - 1, x + 1);
+
+                const sum =
+                  src[idxOf(w, xm1, ym1)] +
+                  src[idxOf(w, x, ym1)] +
+                  src[idxOf(w, xp1, ym1)] +
+                  src[idxOf(w, xm1, y)] +
+                  src[idxOf(w, x, y)] +
+                  src[idxOf(w, xp1, y)] +
+                  src[idxOf(w, xm1, yp1)] +
+                  src[idxOf(w, x, yp1)] +
+                  src[idxOf(w, xp1, yp1)];
+
+                dst[idxOf(w, x, y)] = sum / 9;
+              }
+            }
+          };
+
+          // Two passes are enough to turn a ring into a bump.
+          blur3x3(driveA, driveB);
+          blur3x3(driveB, driveA);
+
+          const pushNeighbor = (x: number, y: number) => {
+            const xx = wrap ? (x + w) % w : clamp(x, 0, w - 1);
+            const yy = wrap ? (y + h) % h : clamp(y, 0, h - 1);
+            stack.push(idxOf(w, xx, yy));
+          };
+
+          const len = state.uCurr.length;
+          const start = ((state.scanOffset % len) + len) % len;
+          state.scanOffset = (start + 9973) % len;
+
+          for (let n = 0; n < len; n++) {
+            if (nucleusCount >= maxNucleiPerFrame) break;
+            const i = (start + n) % len;
+            if (state.visited[i]) continue;
+            if (state.cooldown[i] > 0) continue;
+
+            const amp0 = driveA[i];
+            if (amp0 < threshold) continue;
+
+            // BFS/DFS collect component.
+            component.length = 0;
+            stack.length = 0;
+            stack.push(i);
+
+            let peakIdx = i;
+            let peakAmp = amp0;
+
+            while (stack.length > 0) {
+              const j = stack.pop()!;
+              if (state.visited[j]) continue;
+              state.visited[j] = 1;
+
+              if (state.cooldown[j] > 0) continue;
+              const amp = driveA[j];
+              if (amp < threshold) continue;
+
+              component.push(j);
+              if (amp > peakAmp) {
+                peakAmp = amp;
+                peakIdx = j;
+              }
+
+              const y = Math.floor(j / w);
+              const x = j % w;
+
+              pushNeighbor(x - 1, y);
+              pushNeighbor(x + 1, y);
+              pushNeighbor(x, y - 1);
+              pushNeighbor(x, y + 1);
+            }
+
+            if (component.length === 0) continue;
+
+            // Mark cooldown for the whole region so it doesn't spawn many times.
+            for (const j of component) state.cooldown[j] = cooldownFrames;
+
+            // Nucleate at the peak of the smoothed envelope.
+            const peakY = Math.floor(peakIdx / w);
+            const peakX = peakIdx % w;
+
+            const centerR = Math.floor(((peakY + 0.5) / h) * currentSettings.rows);
+            const centerC = Math.floor(((peakX + 0.5) / w) * currentSettings.cols);
+
+            // Blob radius grows with how strongly we exceeded the threshold.
+            const over = Math.max(0, peakAmp - threshold);
+            const rel = over / Math.max(1e-6, threshold);
+            // sqrt() prevents giant disks that instantly turn into rings in Conway.
+            const radiusCells = clamp(Math.round(Math.sqrt(rel) * 4), 0, maxRadiusCells);
+
+            nucleusCount++;
+
+            // Small nuclei should be a stable "dot" in Conway: 2×2 block.
+            // Use only positive offsets so wrap doesn't visually split it across edges.
+            if (radiusCells <= 1) {
+              const top = centerR;
+              const left = centerC;
+              nuclei.push([top, left], [top, left + 1], [top + 1, left], [top + 1, left + 1]);
+              continue;
+            }
+
+            // Larger nuclei: filled disk (may still evolve under Conway dynamics).
+            for (let dr = -radiusCells; dr <= radiusCells; dr++) {
+              for (let dc = -radiusCells; dc <= radiusCells; dc++) {
+                if (dr * dr + dc * dc > radiusCells * radiusCells) continue;
+                nuclei.push([centerR + dr, centerC + dc]);
+              }
+            }
+          }
+
+          if (nuclei.length > 0) onNucleateCells(nuclei);
+        }
+      }
+
+      // Cooldowns tick down once per frame.
+      for (let i = 0; i < state.cooldown.length; i++) {
+        if (state.cooldown[i] > 0) state.cooldown[i]--;
+      }
+
+      // Report medium metric (avg amplitude) at ~8 Hz.
+      if (ts - state.lastMetricTs > 120) {
+        state.lastMetricTs = ts;
+        let sum = 0;
+        let count = 0;
+        for (let i = 0; i < state.uCurr.length; i += 8) {
+          sum += state.uCurr[i] ?? 0;
+          count++;
+        }
+        onMediumAvgAmplitudeRef.current(count > 0 ? sum / count : 0);
+      }
+
+      // Render (subtle color scale) into low-res wave canvas.
+      const colors = waveColorsRef.current;
+      if (colors) {
+        const { data } = state.imageData;
+        const alphaScale = 90; // max alpha (0..255)
+        const valueScale = 1.2;
+
+        for (let i = 0; i < state.uCurr.length; i++) {
+          const v = clamp(state.uCurr[i] * valueScale, -1, 1);
+          // Gamma boosts visibility of subtle waves.
+          const a = Math.pow(Math.min(1, Math.abs(v)), 0.65);
+          const alpha = Math.max(0, Math.round(alphaScale * a));
+
+          const rgb = v >= 0 ? colors.pos : colors.neg;
+          const p = i * 4;
+          data[p + 0] = rgb.r;
+          data[p + 1] = rgb.g;
+          data[p + 2] = rgb.b;
+          data[p + 3] = alpha;
+        }
+
+        ctx.putImageData(state.imageData, 0, 0);
+      }
+
+      frameId = window.requestAnimationFrame(step);
+    };
+
+    frameId = window.requestAnimationFrame(step);
+    return () => {
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+    };
+  }, [onNucleateCells]);
 
   const cellFromEvent = useCallback(
     (e: MouseEvent<HTMLCanvasElement>) => {
@@ -147,13 +714,22 @@ export default function LifeCanvas({ settings, liveRef, generation, drawNonce, t
     [cellFromEvent, onPaintCell]
   );
 
+  const wrapperStyle = useMemo(() => ({ width: canvasWidth, height: canvasHeight }), [canvasHeight, canvasWidth]);
+
   return (
-    <canvas
-      ref={canvasRef}
-      className="block bg-[var(--canvas)]"
-      onContextMenu={(e) => e.preventDefault()}
-      onMouseDown={onMouseDown}
-      onMouseMove={onMouseMove}
-    />
+    <div className="relative" style={wrapperStyle}>
+      <canvas
+        ref={waveCanvasRef}
+        className="absolute left-0 top-0 block pointer-events-none"
+        style={{ width: canvasWidth, height: canvasHeight, imageRendering: 'auto' }}
+      />
+      <canvas
+        ref={canvasRef}
+        className="relative z-10 block"
+        onContextMenu={(e) => e.preventDefault()}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+      />
+    </div>
   );
 }
