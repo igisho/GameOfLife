@@ -6,12 +6,14 @@ import type { GameSettings, PaintMode } from '../game/types';
 type Props = {
   settings: GameSettings;
   liveRef: MutableRefObject<Set<number>>;
+  antiLiveRef: MutableRefObject<Set<number>>;
   generation: number;
   drawNonce: number;
   theme: ThemeName;
   running: boolean;
   onPaintCell: (r: number, c: number, mode: PaintMode) => void;
   onNucleateCells: (cells: Array<[number, number]>) => void;
+  onNucleateAntiCells: (cells: Array<[number, number]>) => void;
   onMediumAvgAmplitude: (avg: number) => void;
 };
 
@@ -158,12 +160,14 @@ function injectAmbientNoise(state: WaveState, settings: GameSettings, wrap: bool
 export default function LifeCanvas({
   settings,
   liveRef,
+  antiLiveRef,
   generation,
   drawNonce,
   theme,
   running,
   onPaintCell,
   onNucleateCells,
+  onNucleateAntiCells,
   onMediumAvgAmplitude,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -192,6 +196,7 @@ export default function LifeCanvas({
   }, [onMediumAvgAmplitude]);
 
   const waveColorsRef = useRef<{ pos: Rgb; neg: Rgb } | null>(null);
+  const cellColorsRef = useRef<{ live: string; anti: string } | null>(null);
 
   const canvasWidth = settings.cols * settings.cellSize;
   const canvasHeight = settings.rows * settings.cellSize;
@@ -206,8 +211,15 @@ export default function LifeCanvas({
   const syncCanvasColors = useCallback(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
-    ctx.fillStyle = readCssVar('--cell');
-    ctx.strokeStyle = readCssVar('--grid');
+
+    const live = readCssVar('--cell');
+    const anti = readCssVar('--anti-cell');
+    const grid = readCssVar('--grid');
+
+    cellColorsRef.current = { live, anti };
+
+    ctx.fillStyle = live;
+    ctx.strokeStyle = grid;
 
     waveColorsRef.current = {
       pos: parseCssColor(readCssVar('--wave-pos')),
@@ -264,6 +276,16 @@ export default function LifeCanvas({
       state.source[idxOf(w, x, y)] += 1;
     }
 
+    if (settings.antiparticlesEnabled) {
+      for (const k of antiLiveRef.current) {
+        const [r, c] = keyToRc(settings.cols, k);
+        const x = Math.floor((c / settings.cols) * w);
+        const y = Math.floor((r / settings.rows) * h);
+        if (x < 0 || x >= w || y < 0 || y >= h) continue;
+        state.source[idxOf(w, x, y)] -= 1;
+      }
+    }
+
     // Normalize so amplitude is stable across resolutions.
     const cellAreaPerWavePixel = (settings.cols / w) * (settings.rows / h);
     const inv = cellAreaPerWavePixel > 0 ? 1 / cellAreaPerWavePixel : 1;
@@ -293,7 +315,7 @@ export default function LifeCanvas({
         state.source[idxOf(w, x, y)] = sum / 9;
       }
     }
-  }, [liveRef, settings.cols, settings.rows, settings.wrap]);
+  }, [antiLiveRef, liveRef, settings.antiparticlesEnabled, settings.cols, settings.rows, settings.wrap]);
 
   const drawCells = useCallback(() => {
     const canvas = canvasRef.current;
@@ -302,11 +324,25 @@ export default function LifeCanvas({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    const colors = cellColorsRef.current;
+    if (colors) ctx.fillStyle = colors.live;
+
     for (const k of liveRef.current) {
       const [r, c] = keyToRc(settings.cols, k);
       const x = c * settings.cellSize;
       const y = r * settings.cellSize;
       ctx.fillRect(x, y, settings.cellSize, settings.cellSize);
+    }
+
+    if (settings.antiparticlesEnabled) {
+      if (colors) ctx.fillStyle = colors.anti;
+      for (const k of antiLiveRef.current) {
+        const [r, c] = keyToRc(settings.cols, k);
+        const x = c * settings.cellSize;
+        const y = r * settings.cellSize;
+        ctx.fillRect(x, y, settings.cellSize, settings.cellSize);
+      }
+      if (colors) ctx.fillStyle = colors.live;
     }
 
     if (settings.showGrid) {
@@ -330,7 +366,7 @@ export default function LifeCanvas({
       }
       ctx.restore();
     }
-  }, [liveRef, settings.cellSize, settings.cols, settings.rows, settings.showGrid]);
+  }, [antiLiveRef, liveRef, settings.antiparticlesEnabled, settings.cellSize, settings.cols, settings.rows, settings.showGrid]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -492,7 +528,8 @@ export default function LifeCanvas({
           state.visited.fill(0);
 
           let nucleusCount = 0;
-          const nuclei: Array<[number, number]> = [];
+          const nucleiPos: Array<[number, number]> = [];
+          const nucleiNeg: Array<[number, number]> = [];
 
           const component: number[] = [];
           const stack: number[] = [];
@@ -500,13 +537,13 @@ export default function LifeCanvas({
           const w = state.w;
           const h = state.h;
 
-          // Use a smoothed envelope |u| for nucleation so a ring-shaped crest yields
-          // a central nucleation site (matches the "source" intuition).
+          // Signed, smoothed drive: blur u itself (not |u|), so negative crests spawn antiparticles.
+          // The blur also turns ring-shaped crests into central bumps.
           const driveA = state.lap1;
           const driveB = state.lap2;
 
           for (let i = 0; i < state.uCurr.length; i++) {
-            driveA[i] = Math.abs(state.uCurr[i]);
+            driveA[i] = state.uCurr[i];
           }
 
           const blur3x3 = (src: Float32Array, dst: Float32Array) => {
@@ -533,7 +570,6 @@ export default function LifeCanvas({
             }
           };
 
-          // Two passes are enough to turn a ring into a bump.
           blur3x3(driveA, driveB);
           blur3x3(driveB, driveA);
 
@@ -553,16 +589,21 @@ export default function LifeCanvas({
             if (state.visited[i]) continue;
             if (state.cooldown[i] > 0) continue;
 
-            const amp0 = driveA[i];
-            if (amp0 < threshold) continue;
+            const v0 = driveA[i];
+            let sign: 1 | -1 | 0 = 0;
+            if (v0 > threshold) sign = 1;
+            else if (v0 < -threshold) sign = -1;
+            else continue;
 
-            // BFS/DFS collect component.
+            if (sign === -1 && !currentSettings.antiparticlesEnabled) continue;
+
+            // BFS/DFS collect one sign-consistent component.
             component.length = 0;
             stack.length = 0;
             stack.push(i);
 
             let peakIdx = i;
-            let peakAmp = amp0;
+            let peakValue = v0;
 
             while (stack.length > 0) {
               const j = stack.pop()!;
@@ -570,13 +611,25 @@ export default function LifeCanvas({
               state.visited[j] = 1;
 
               if (state.cooldown[j] > 0) continue;
-              const amp = driveA[j];
-              if (amp < threshold) continue;
+              const v = driveA[j];
+
+              if (sign === 1) {
+                if (v < threshold) continue;
+              } else {
+                if (v > -threshold) continue;
+              }
 
               component.push(j);
-              if (amp > peakAmp) {
-                peakAmp = amp;
-                peakIdx = j;
+              if (sign === 1) {
+                if (v > peakValue) {
+                  peakValue = v;
+                  peakIdx = j;
+                }
+              } else {
+                if (v < peakValue) {
+                  peakValue = v;
+                  peakIdx = j;
+                }
               }
 
               const y = Math.floor(j / w);
@@ -593,7 +646,7 @@ export default function LifeCanvas({
             // Mark cooldown for the whole region so it doesn't spawn many times.
             for (const j of component) state.cooldown[j] = cooldownFrames;
 
-            // Nucleate at the peak of the smoothed envelope.
+            // Nucleate at the peak of the smoothed drive.
             const peakY = Math.floor(peakIdx / w);
             const peakX = peakIdx % w;
 
@@ -601,19 +654,21 @@ export default function LifeCanvas({
             const centerC = Math.floor(((peakX + 0.5) / w) * currentSettings.cols);
 
             // Blob radius grows with how strongly we exceeded the threshold.
-            const over = Math.max(0, peakAmp - threshold);
+            const peakMag = Math.abs(peakValue);
+            const over = Math.max(0, peakMag - threshold);
             const rel = over / Math.max(1e-6, threshold);
-            // sqrt() prevents giant disks that instantly turn into rings in Conway.
             const radiusCells = clamp(Math.round(Math.sqrt(rel) * 4), 0, maxRadiusCells);
 
             nucleusCount++;
+
+            const out = sign === 1 ? nucleiPos : nucleiNeg;
 
             // Small nuclei should be a stable "dot" in Conway: 2×2 block.
             // Use only positive offsets so wrap doesn't visually split it across edges.
             if (radiusCells <= 1) {
               const top = centerR;
               const left = centerC;
-              nuclei.push([top, left], [top, left + 1], [top + 1, left], [top + 1, left + 1]);
+              out.push([top, left], [top, left + 1], [top + 1, left], [top + 1, left + 1]);
               continue;
             }
 
@@ -621,12 +676,13 @@ export default function LifeCanvas({
             for (let dr = -radiusCells; dr <= radiusCells; dr++) {
               for (let dc = -radiusCells; dc <= radiusCells; dc++) {
                 if (dr * dr + dc * dc > radiusCells * radiusCells) continue;
-                nuclei.push([centerR + dr, centerC + dc]);
+                out.push([centerR + dr, centerC + dc]);
               }
             }
           }
 
-          if (nuclei.length > 0) onNucleateCells(nuclei);
+          if (nucleiPos.length > 0) onNucleateCells(nucleiPos);
+          if (currentSettings.antiparticlesEnabled && nucleiNeg.length > 0) onNucleateAntiCells(nucleiNeg);
         }
       }
 
@@ -678,7 +734,7 @@ export default function LifeCanvas({
     return () => {
       if (frameId !== null) window.cancelAnimationFrame(frameId);
     };
-  }, [onNucleateCells]);
+  }, [onNucleateAntiCells, onNucleateCells]);
 
   const cellFromEvent = useCallback(
     (e: MouseEvent<HTMLCanvasElement>) => {

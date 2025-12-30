@@ -242,6 +242,16 @@ export default function Sidebar({ game, theme, setTheme, onPlaceGlider, onPlaceP
                   </div>
                 </div>
               ) : null}
+
+              <div className="mt-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={game.settings.antiparticlesEnabled}
+                    onCheckedChange={(v) => game.setAntiparticlesEnabled(Boolean(v))}
+                  />
+                  <span>Anti-častice (experiment, iba v B režime)</span>
+                </label>
+              </div>
             </Card>
           </div>
 

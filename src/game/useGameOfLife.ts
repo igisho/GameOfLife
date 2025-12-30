@@ -15,13 +15,25 @@ function rcOf(cols: number, key: number) {
   return [r, c] as const;
 }
 
+function annihilateOverlap(a: Set<number>, b: Set<number>) {
+  if (a.size === 0 || b.size === 0) return;
+  const [small, big] = a.size <= b.size ? [a, b] : [b, a];
+  for (const k of small) {
+    if (!big.has(k)) continue;
+    small.delete(k);
+    big.delete(k);
+  }
+}
+
 export type UseGameOfLifeResult = {
   settings: GameSettings;
   running: boolean;
   generation: number;
   liveCount: number;
+  antiLiveCount: number;
   drawNonce: number;
   liveRef: MutableRefObject<Set<number>>;
+  antiLiveRef: MutableRefObject<Set<number>>;
 
   setRunning: (on: boolean) => void;
   toggleRunning: () => void;
@@ -33,6 +45,7 @@ export type UseGameOfLifeResult = {
   centerPlace: (pattern: string[]) => void;
   paintCell: (r: number, c: number, mode: PaintMode) => void;
   nucleateCells: (cells: Array<[number, number]>) => void;
+  nucleateAntiCells: (cells: Array<[number, number]>) => void;
 
   setRows: (rows: number) => void;
   setCols: (cols: number) => void;
@@ -48,6 +61,7 @@ export type UseGameOfLifeResult = {
   setHopHz: (hz: number) => void;
   setHopStrength: (strength: number) => void;
   setNucleationThreshold: (threshold: number) => void;
+  setAntiparticlesEnabled: (enabled: boolean) => void;
 
   setNoiseEnabled: (enabled: boolean) => void;
   setNoiseIntensityPercent: (noisePercent: number) => void;
@@ -75,6 +89,8 @@ export function useGameOfLife(): UseGameOfLifeResult {
     hopStrength: 1,
     nucleationThreshold: 0.25,
 
+    antiparticlesEnabled: false,
+
     // Cell noise (old behavior)
     noiseEnabled: true,
     noiseIntensity: 0.1,
@@ -94,7 +110,9 @@ export function useGameOfLife(): UseGameOfLifeResult {
   }, [settings]);
 
   const liveRef = useRef<Set<number>>(new Set());
+  const antiLiveRef = useRef<Set<number>>(new Set());
   const [liveCount, setLiveCount] = useState(0);
+  const [antiLiveCount, setAntiLiveCount] = useState(0);
   const [generation, setGeneration] = useState(0);
   const [running, setRunningState] = useState(false);
   const [drawNonce, setDrawNonce] = useState(0);
@@ -121,6 +139,46 @@ export function useGameOfLife(): UseGameOfLifeResult {
 
   const stepOnceInternal = useCallback(() => {
     const s = settingsRef.current;
+
+    const stepConway = (current: Set<number>) => {
+      const counts = new Map<number, number>();
+
+      const addCount = (r: number, c: number) => {
+        let rr = r;
+        let cc = c;
+        if (s.wrap) {
+          rr = (rr + s.rows) % s.rows;
+          cc = (cc + s.cols) % s.cols;
+        } else {
+          if (rr < 0 || rr >= s.rows || cc < 0 || cc >= s.cols) return;
+        }
+
+        const k = keyOf(s.cols, rr, cc);
+        counts.set(k, (counts.get(k) ?? 0) + 1);
+      };
+
+      for (const k of current) {
+        const [r, c] = rcOf(s.cols, k);
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            addCount(r + dr, c + dc);
+          }
+        }
+      }
+
+      const next = new Set<number>();
+      for (const [k, n] of counts.entries()) {
+        const alive = current.has(k);
+        if (alive) {
+          if (n === 2 || n === 3) next.add(k);
+        } else {
+          if (n === 3) next.add(k);
+        }
+      }
+
+      return next;
+    };
 
     const addLive = (r: number, c: number) => {
       let rr = r;
@@ -179,45 +237,16 @@ export function useGameOfLife(): UseGameOfLifeResult {
 
     applyCellNoise();
 
-    const counts = new Map<number, number>();
+    const nextLive = stepConway(liveRef.current);
+    const nextAnti = stepConway(antiLiveRef.current);
 
+    annihilateOverlap(nextLive, nextAnti);
 
-    const addCount = (r: number, c: number) => {
-      let rr = r;
-      let cc = c;
-      if (s.wrap) {
-        rr = (rr + s.rows) % s.rows;
-        cc = (cc + s.cols) % s.cols;
-      } else {
-        if (rr < 0 || rr >= s.rows || cc < 0 || cc >= s.cols) return;
-      }
+    liveRef.current = nextLive;
+    antiLiveRef.current = nextAnti;
 
-      const k = keyOf(s.cols, rr, cc);
-      counts.set(k, (counts.get(k) ?? 0) + 1);
-    };
-
-    for (const k of liveRef.current) {
-      const [r, c] = rcOf(s.cols, k);
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          if (dr === 0 && dc === 0) continue;
-          addCount(r + dr, c + dc);
-        }
-      }
-    }
-
-    const next = new Set<number>();
-    for (const [k, n] of counts.entries()) {
-      const alive = liveRef.current.has(k);
-      if (alive) {
-        if (n === 2 || n === 3) next.add(k);
-      } else {
-        if (n === 3) next.add(k);
-      }
-    }
-
-    liveRef.current = next;
-    setLiveCount(next.size);
+    setLiveCount(nextLive.size);
+    setAntiLiveCount(nextAnti.size);
     setGeneration((g) => g + 1);
     bumpDraw();
   }, [bumpDraw]);
@@ -256,7 +285,9 @@ export function useGameOfLife(): UseGameOfLifeResult {
 
   const clearAll = useCallback(() => {
     liveRef.current.clear();
+    antiLiveRef.current.clear();
     setLiveCount(0);
+    setAntiLiveCount(0);
     setGeneration(0);
     bumpDraw();
   }, [bumpDraw]);
@@ -273,7 +304,10 @@ export function useGameOfLife(): UseGameOfLifeResult {
     }
 
     liveRef.current = next;
+    antiLiveRef.current.clear();
+
     setLiveCount(next.size);
+    setAntiLiveCount(0);
     setGeneration(0);
     bumpDraw();
   }, [bumpDraw]);
@@ -303,7 +337,10 @@ export function useGameOfLife(): UseGameOfLifeResult {
         }
       }
 
+      annihilateOverlap(liveRef.current, antiLiveRef.current);
+
       setLiveCount(liveRef.current.size);
+      setAntiLiveCount(antiLiveRef.current.size);
       bumpDraw();
     },
     [bumpDraw]
@@ -330,7 +367,10 @@ export function useGameOfLife(): UseGameOfLifeResult {
       if (mode === 'add') liveRef.current.add(k);
       else liveRef.current.delete(k);
 
+      annihilateOverlap(liveRef.current, antiLiveRef.current);
+
       setLiveCount(liveRef.current.size);
+      setAntiLiveCount(antiLiveRef.current.size);
       bumpDraw();
     },
     [bumpDraw]
@@ -353,7 +393,37 @@ export function useGameOfLife(): UseGameOfLifeResult {
         liveRef.current.add(keyOf(s.cols, rr, cc));
       }
 
+      annihilateOverlap(liveRef.current, antiLiveRef.current);
+
       setLiveCount(liveRef.current.size);
+      setAntiLiveCount(antiLiveRef.current.size);
+      bumpDraw();
+    },
+    [bumpDraw]
+  );
+
+  const nucleateAntiCells = useCallback(
+    (cells: Array<[number, number]>) => {
+      if (cells.length === 0) return;
+      const s = settingsRef.current;
+      if (!s.antiparticlesEnabled) return;
+
+      for (const [r, c] of cells) {
+        let rr = r;
+        let cc = c;
+        if (s.wrap) {
+          rr = (rr + s.rows) % s.rows;
+          cc = (cc + s.cols) % s.cols;
+        } else {
+          if (rr < 0 || rr >= s.rows || cc < 0 || cc >= s.cols) continue;
+        }
+        antiLiveRef.current.add(keyOf(s.cols, rr, cc));
+      }
+
+      annihilateOverlap(liveRef.current, antiLiveRef.current);
+
+      setLiveCount(liveRef.current.size);
+      setAntiLiveCount(antiLiveRef.current.size);
       bumpDraw();
     },
     [bumpDraw]
@@ -384,19 +454,34 @@ export function useGameOfLife(): UseGameOfLifeResult {
 
     const colsChanged = next.cols !== prev.cols;
     const rowsChanged = next.rows !== prev.rows;
+    const antiparticlesTurningOff = prev.antiparticlesEnabled && !next.antiparticlesEnabled;
 
     if (colsChanged || rowsChanged) {
-      const remapped = new Set<number>();
-      for (const k of liveRef.current) {
-        const [r, c] = rcOf(prev.cols, k);
-        if (r >= 0 && r < next.rows && c >= 0 && c < next.cols) {
-          remapped.add(keyOf(next.cols, r, c));
+      const remap = (set: Set<number>) => {
+        const remapped = new Set<number>();
+        for (const k of set) {
+          const [r, c] = rcOf(prev.cols, k);
+          if (r >= 0 && r < next.rows && c >= 0 && c < next.cols) {
+            remapped.add(keyOf(next.cols, r, c));
+          }
         }
-      }
-      liveRef.current = remapped;
-      setLiveCount(remapped.size);
-      bumpDraw();
+        return remapped;
+      };
+
+      liveRef.current = remap(liveRef.current);
+      antiLiveRef.current = remap(antiLiveRef.current);
     }
+
+    if (antiparticlesTurningOff) {
+      antiLiveRef.current.clear();
+    }
+
+    annihilateOverlap(liveRef.current, antiLiveRef.current);
+
+    setLiveCount(liveRef.current.size);
+    setAntiLiveCount(antiLiveRef.current.size);
+
+    if (colsChanged || rowsChanged || antiparticlesTurningOff) bumpDraw();
 
     settingsRef.current = next;
     setSettingsState(next);
@@ -408,8 +493,10 @@ export function useGameOfLife(): UseGameOfLifeResult {
       running,
       generation,
       liveCount,
+      antiLiveCount,
       drawNonce,
       liveRef,
+      antiLiveRef,
 
       setRunning,
       toggleRunning,
@@ -421,6 +508,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
       centerPlace,
       paintCell,
       nucleateCells,
+      nucleateAntiCells,
 
       setRows: (rows) => updateSettings({ rows }),
       setCols: (cols) => updateSettings({ cols }),
@@ -449,6 +537,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
       setHopHz: (hz) => updateSettings({ hopHz: hz }),
       setHopStrength: (strength) => updateSettings({ hopStrength: strength }),
       setNucleationThreshold: (threshold) => updateSettings({ nucleationThreshold: threshold }),
+      setAntiparticlesEnabled: (enabled) => updateSettings({ antiparticlesEnabled: enabled }),
 
       setNoiseEnabled: (enabled) => updateSettings({ noiseEnabled: enabled }),
       setNoiseIntensityPercent: (noisePercent) => updateSettings({ noiseIntensity: clamp(noisePercent / 100, 0, 1) }),
@@ -467,7 +556,9 @@ export function useGameOfLife(): UseGameOfLifeResult {
       drawNonce,
       generation,
       liveCount,
+      antiLiveCount,
       nucleateCells,
+      nucleateAntiCells,
       paintCell,
       randomize,
       running,

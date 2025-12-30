@@ -18,6 +18,9 @@ export type GameSettings = {
   hopStrength: number;
   nucleationThreshold: number;
 
+  // Experimental: spawn antiparticles from negative waves.
+  antiparticlesEnabled: boolean;
+
   // Noise injected into the cell grid each tick (keeps the automaton alive).
   noiseEnabled: boolean;
   noiseIntensity: number; // 0..1

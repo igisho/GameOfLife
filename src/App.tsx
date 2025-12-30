@@ -293,12 +293,14 @@ export default function App() {
               <LifeCanvas
                 settings={game.settings}
                 liveRef={game.liveRef}
+                antiLiveRef={game.antiLiveRef}
                 generation={game.generation}
                 drawNonce={game.drawNonce}
                 theme={theme}
                 running={game.running}
                 onPaintCell={game.paintCell}
                 onNucleateCells={game.nucleateCells}
+                onNucleateAntiCells={game.nucleateAntiCells}
                 onMediumAvgAmplitude={onMediumAvgAmplitude}
               />
             </div>
