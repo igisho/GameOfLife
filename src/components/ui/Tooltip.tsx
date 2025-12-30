@@ -10,12 +10,12 @@ type Props = {
 
 export default function Tooltip({ label, children, sideOffset = 8 }: Props) {
   return (
-    <span className="relative inline-flex group">
+    <span className="relative inline-flex group overflow-visible">
       {children}
       <span
         role="tooltip"
         className={cn(
-          'pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[var(--panel-border)] px-2 py-1 text-[11px] font-medium text-[var(--text)] opacity-0 shadow-md transition-opacity',
+          'pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 max-w-[520px] whitespace-normal rounded-xl border border-[var(--panel-border)] px-3 py-2 text-[11px] font-medium leading-4 text-[var(--text)] opacity-0 shadow-md transition-opacity',
           'bg-[var(--panel)] group-hover:opacity-100'
         )}
         style={{ bottom: `calc(100% + ${sideOffset}px)` }}
