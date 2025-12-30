@@ -234,7 +234,7 @@ export default function LifeCanvas({
     onMediumAvgAmplitudeRef.current(0);
   }, [resetNonce]);
 
-  const waveColorsRef = useRef<{ pos: Rgb; neg: Rgb } | null>(null);
+  const waveColorsRef = useRef<{ pos: Rgb; neg: Rgb; zero: Rgb } | null>(null);
   const cellColorsRef = useRef<{ live: string; anti: string } | null>(null);
 
   const canvasWidth = settings.cols * settings.cellSize;
@@ -263,6 +263,8 @@ export default function LifeCanvas({
     waveColorsRef.current = {
       pos: parseCssColor(readCssVar('--wave-pos')),
       neg: parseCssColor(readCssVar('--wave-neg')),
+      // Use the canvas background as the neutral "zero" color.
+      zero: parseCssColor(readCssVar('--canvas')),
     };
   }, []);
 
@@ -808,28 +810,48 @@ export default function LifeCanvas({
         onMediumAvgAmplitudeRef.current(count > 0 ? sum / count : 0);
       }
 
-      // Render (subtle color scale) into low-res wave canvas.
+      // Render into low-res wave canvas.
+      // Use a diverging colormap with a neutral midpoint, so both polarity and
+      // magnitude are readable (not just "pink vs blue").
       const colors = waveColorsRef.current;
       if (colors) {
         const { data } = state.imageData;
-        const alphaScale = 90; // max alpha (0..255)
-        const valueScale = 1.2;
+
+        const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+        const lerpRgb = (a: Rgb, b: Rgb, t: number): Rgb => ({
+          r: lerp(a.r, b.r, t),
+          g: lerp(a.g, b.g, t),
+          b: lerp(a.b, b.b, t),
+        });
+
+        // Soft-saturate instead of hard clamp, so we keep mid-tones.
+        // Larger values make the medium "more contrasty".
+        const valueScale = 1.0;
+
+        // Keep even subtle waves visible, but avoid washing out the cells layer.
+        const alphaMin = 18;
+        const alphaMax = 160;
+        const gamma = 0.85;
 
         for (let i = 0; i < state.uCurr.length; i++) {
           const u = state.uCurr[i];
           const uSafe = Number.isFinite(u) ? u : 0;
 
-          const v = clamp(uSafe * valueScale, -1, 1);
-          // Gamma boosts visibility of subtle waves.
-          const a = Math.pow(Math.min(1, Math.abs(v)), 0.65);
-          const alpha = Math.max(0, Math.round(alphaScale * a));
+          // t in [-1, 1]
+          const t = Math.tanh(uSafe * valueScale);
+          const mag = Math.abs(t);
 
-          const rgb = v >= 0 ? colors.pos : colors.neg;
+          const mix = Math.pow(mag, 0.9);
+          const target = t >= 0 ? colors.pos : colors.neg;
+          const rgb = lerpRgb(colors.zero, target, mix);
+
+          const alpha = Math.round(alphaMin + (alphaMax - alphaMin) * Math.pow(mag, gamma));
+
           const p = i * 4;
-          data[p + 0] = rgb.r;
-          data[p + 1] = rgb.g;
-          data[p + 2] = rgb.b;
-          data[p + 3] = alpha;
+          data[p + 0] = clamp(Math.round(rgb.r), 0, 255);
+          data[p + 1] = clamp(Math.round(rgb.g), 0, 255);
+          data[p + 2] = clamp(Math.round(rgb.b), 0, 255);
+          data[p + 3] = clamp(alpha, 0, 255);
         }
 
         ctx.putImageData(state.imageData, 0, 0);
