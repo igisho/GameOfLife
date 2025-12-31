@@ -348,12 +348,13 @@ export default function App() {
                ) : null}
 
 
-              <div className="pointer-events-none absolute right-4 top-4 z-10 space-y-2">
-               <div
-                 className="w-[200px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
-                 style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
-               >
-                 <svg viewBox="0 0 120 34" width={120} height={34} className="block" aria-hidden="true">
+              <div className="pointer-events-none absolute right-4 top-4 space-y-2" style={{ zIndex: 49 }}>
+                <div
+                  className="w-[200px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
+                >
+                  <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('app.medium')}</div>
+                  <svg viewBox="0 0 120 34" width={120} height={34} className="mt-2 block" aria-hidden="true">
                    <line x1={0} y1={mediumMidY} x2={120} y2={mediumMidY} stroke="var(--grid)" strokeWidth={1} opacity={0.35} />
                    {mediumNegSegments.map((points) => (
                      <polyline
