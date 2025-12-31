@@ -14,6 +14,9 @@ export type GameSettings = {
 
   // Medium / wave layer
   mediumMode: MediumMode;
+  // How many medium integration substeps to run per Conway generation.
+  // If >1, the total medium time per generation stays constant (smaller dt per substep).
+  mediumStepsPerGeneration: number;
   hopHz: number;
   hopStrength: number;
   nucleationThreshold: number;

@@ -179,6 +179,10 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
     () => Math.round(game.settings.nucleationThreshold * 100) / 100,
     [game.settings.nucleationThreshold]
   );
+  const mediumStepsPerGeneration = useMemo(
+    () => Math.round(game.settings.mediumStepsPerGeneration),
+    [game.settings.mediumStepsPerGeneration]
+  );
 
   const infoModal = infoOpen
     ? createPortal(
@@ -487,11 +491,27 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                     onValueChange={(v) => game.setHopStrength((v[0] ?? hopStrengthPercent) / 100)}
                   />
                 </div>
-              </div>
+               </div>
 
-              {game.settings.mediumMode === 'nucleation' ? (
-                <div className="mt-3">
-                  <HelpRow
+               <div className="mt-3">
+                 <HelpRow
+                   label={<div className="text-xs font-medium opacity-90">{t('medium.stepsPerGeneration.label', { value: mediumStepsPerGeneration })}</div>}
+                   help={t('medium.stepsPerGeneration.help')}
+                 />
+                 <div className="mt-2">
+                   <Slider
+                     value={[mediumStepsPerGeneration]}
+                     min={1}
+                     max={12}
+                     step={1}
+                     onValueChange={(v) => game.setMediumStepsPerGeneration(v[0] ?? mediumStepsPerGeneration)}
+                   />
+                 </div>
+               </div>
+ 
+               {game.settings.mediumMode === 'nucleation' ? (
+                 <div className="mt-3">
+                   <HelpRow
                     label={
                          <div className="text-xs font-medium opacity-90">
                            {t('medium.nucleationThreshold.label', { value: nucleationThreshold })}

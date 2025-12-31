@@ -113,6 +113,10 @@ export const MESSAGES: Record<Locale, Messages> = {
     'medium.hopStrength.help':
       'Impact impulse size. Higher = larger wave amplitudes around sources; watch the “sea” change color and nucleation happen more often.',
 
+    'medium.stepsPerGeneration.label': 'Medium steps per generation: {{value}}',
+    'medium.stepsPerGeneration.help':
+      'How many medium integration substeps run per Conway generation. Higher = smoother/more stable medium evolution without changing total medium time per generation.',
+
     'medium.nucleationThreshold.label': 'Nucleation threshold: {{value}}',
     'medium.nucleationThreshold.help':
       'Critical (smoothed) amplitude at which a fluctuation stabilizes into a core. Lower = matter/antimatter forms more easily; higher = rarer, more stable nucleation.',
@@ -293,6 +297,10 @@ export const MESSAGES: Record<Locale, Messages> = {
     'medium.hopStrength.help':
       'Veľkosť impulzu pri dopade. Vyššie = väčšia amplitúda vĺn okolo zdroja; sleduj zmeny farby „mora“ a častejšiu nukleáciu.',
 
+    'medium.stepsPerGeneration.label': 'Kroky média na generáciu: {{value}}',
+    'medium.stepsPerGeneration.help':
+      'Koľko integračných podkrokov média sa vykoná na jeden Conway krok. Vyššie = hladšia/stabilnejšia evolúcia média bez zmeny celkového „času“ média na generáciu.',
+
     'medium.nucleationThreshold.label': 'Prah nukleácie: {{value}}',
     'medium.nucleationThreshold.help':
       'Kritická amplitúda (po vyhladení), pri ktorej sa fluktuácia média stabilizuje do jadra. Nižšie = ľahšie vzniká hmota/antihmota; vyššie = stabilnejšie, zriedkavejšie nukleácie.',
@@ -470,6 +478,10 @@ export const MESSAGES: Record<Locale, Messages> = {
     'medium.hopStrength.help':
       'Impulsgröße beim Einschlag. Höher = größere Wellenamplituden um Quellen; beobachte Farbwechsel im „Meer“ und häufigere Keimbildung.',
 
+    'medium.stepsPerGeneration.label': 'Medium‑Schritte pro Generation: {{value}}',
+    'medium.stepsPerGeneration.help':
+      'Wie viele Integrations-Substeps des Mediums pro Conway-Generation laufen. Höher = glattere/stabilere Evolution ohne die Gesamtzeit pro Generation zu ändern.',
+
     'medium.nucleationThreshold.label': 'Keimbildungsschwelle: {{value}}',
     'medium.nucleationThreshold.help':
       'Kritische (geglättete) Amplitude, ab der eine Fluktuation zu einem Kern stabilisiert. Niedriger = leichter Materie/Antimaterie; höher = seltener, stabiler.',
@@ -646,6 +658,10 @@ export const MESSAGES: Record<Locale, Messages> = {
     'medium.hopStrength.label': 'Force d’impact de la source : {{value}}%',
     'medium.hopStrength.help':
       'Taille de l’impulsion. Plus haut = plus grande amplitude des ondes autour des sources ; observe les changements de couleur de la « mer » et une nucléation plus fréquente.',
+
+    'medium.stepsPerGeneration.label': 'Pas du milieu par génération : {{value}}',
+    'medium.stepsPerGeneration.help':
+      'Combien de sous-pas d’intégration du milieu s’exécutent par génération Conway. Plus haut = évolution plus lisse/stable sans changer le temps total du milieu par génération.',
 
     'medium.nucleationThreshold.label': 'Seuil de nucléation : {{value}}',
     'medium.nucleationThreshold.help':

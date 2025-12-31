@@ -82,6 +82,7 @@ export type UseGameOfLifeResult = {
   setHopHz: (hz: number) => void;
   setHopStrength: (strength: number) => void;
   setNucleationThreshold: (threshold: number) => void;
+  setMediumStepsPerGeneration: (steps: number) => void;
   setAntiparticlesEnabled: (enabled: boolean) => void;
 
   setLakeNoiseEnabled: (enabled: boolean) => void;
@@ -108,6 +109,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
     density: 0.02,
 
     mediumMode: 'nucleation',
+    mediumStepsPerGeneration: 1,
     hopHz: 4,
     hopStrength: 1,
     nucleationThreshold: 0.25,
@@ -453,6 +455,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
       speedMs: clamp(Number(patch.speedMs ?? prev.speedMs), 10, 400),
       density: clamp(Number(patch.density ?? prev.density), 0, 1),
 
+      mediumStepsPerGeneration: clamp(Number(patch.mediumStepsPerGeneration ?? prev.mediumStepsPerGeneration), 1, 12),
       hopHz: clamp(Number(patch.hopHz ?? prev.hopHz), 0, 20),
       hopStrength: clamp(Number(patch.hopStrength ?? prev.hopStrength), 0, 3),
       nucleationThreshold: clamp(Number(patch.nucleationThreshold ?? prev.nucleationThreshold), 0.01, 2),
@@ -554,6 +557,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
       setHopHz: (hz) => updateSettings({ hopHz: hz }),
       setHopStrength: (strength) => updateSettings({ hopStrength: strength }),
       setNucleationThreshold: (threshold) => updateSettings({ nucleationThreshold: threshold }),
+      setMediumStepsPerGeneration: (steps) => updateSettings({ mediumStepsPerGeneration: steps }),
       setAntiparticlesEnabled: (enabled) => updateSettings({ antiparticlesEnabled: enabled }),
 
       setLakeNoiseEnabled: (enabled) => updateSettings({ lakeNoiseEnabled: enabled }),

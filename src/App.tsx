@@ -464,20 +464,19 @@ export default function App() {
              </div>
 
              <div ref={canvasScrollRef} className="h-full overflow-auto">
-                 <LifeCanvas
-
-                  settings={game.settings}
-                  liveRef={game.liveRef}
-                  antiLiveRef={game.antiLiveRef}
-                  annihilationRef={game.annihilationRef}
-                  annihilationNonce={game.annihilationNonce}
-                  generation={game.generation}
-                  drawNonce={game.drawNonce}
-                  resetNonce={game.resetNonce}
-                  theme={theme}
-                  running={game.running}
-
-                onPaintCell={game.paintCell}
+                  <LifeCanvas
+ 
+                   settings={game.settings}
+                   liveRef={game.liveRef}
+                   antiLiveRef={game.antiLiveRef}
+                   annihilationRef={game.annihilationRef}
+                   annihilationNonce={game.annihilationNonce}
+                   generation={game.generation}
+                   drawNonce={game.drawNonce}
+                   resetNonce={game.resetNonce}
+                   theme={theme}
+ 
+                 onPaintCell={game.paintCell}
                 onNucleateCells={game.nucleateCells}
                 onNucleateAntiCells={game.nucleateAntiCells}
                 onMediumAvgAmplitude={onMediumAvgAmplitude}
