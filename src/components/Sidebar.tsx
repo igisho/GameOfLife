@@ -195,7 +195,7 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
           <div className="absolute inset-0 bg-black/60" onMouseDown={() => setInfoOpen(false)} aria-hidden="true" />
 
           <div
-            className="relative w-full max-w-[860px] overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg"
+            className="relative flex w-full max-w-[860px] flex-col overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg h-[calc(100svh-2rem)] sm:h-[80vh]"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3 border-b border-[var(--panel-border)] p-4">
@@ -210,7 +210,7 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
               </Button>
             </div>
 
-            <ScrollArea className="max-h-[80vh]">
+            <ScrollArea className="flex-1 min-h-0 touch-pan-y overscroll-contain">
               <div className="space-y-4 p-4 text-sm leading-6">
                 <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3 text-xs opacity-90">
                   {t('info.intro')}
