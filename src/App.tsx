@@ -1,4 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import LifeCanvas, { type MediumPreviewFrame } from './components/LifeCanvas';
+import MediumLake3DPreview from './components/MediumLake3DPreview';
+import Sidebar from './components/Sidebar';
+import StartOverlay from './components/StartOverlay';
+import Button from './components/ui/Button';
+import { useGameOfLife } from './game/useGameOfLife';
+import { BLINKER, START_L3, START_SHIFTED_2X2 } from './game/patterns';
+import { cn } from './lib/cn';
+import { applyTheme, type ThemeName } from './lib/themes';
+import { useI18n } from './i18n/I18nProvider';
 
 function formatCount(n: number) {
   const v = Math.max(0, Math.floor(Number.isFinite(n) ? n : 0));
@@ -30,15 +41,6 @@ function formatSigned(x: number) {
   const s = abs.toFixed(3).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
   return `${sign}${s}`;
 }
-import LifeCanvas from './components/LifeCanvas';
-import Sidebar from './components/Sidebar';
-import StartOverlay from './components/StartOverlay';
-import Button from './components/ui/Button';
-import { useGameOfLife } from './game/useGameOfLife';
-import { BLINKER, START_L3, START_SHIFTED_2X2 } from './game/patterns';
-import { cn } from './lib/cn';
-import { applyTheme, type ThemeName } from './lib/themes';
-import { useI18n } from './i18n/I18nProvider';
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
@@ -56,20 +58,22 @@ export default function App() {
 
   const canvasScrollRef = useRef<HTMLDivElement | null>(null);
 
-  const [mediumSeries, setMediumSeries] = useState<number[]>(() => Array.from({ length: 64 }, () => 0));
+  const [mediumAvg, setMediumAvg] = useState(0);
+  const [mediumPreview, setMediumPreview] = useState<MediumPreviewFrame | null>(null);
+  const [mediumPreviewOpen, setMediumPreviewOpen] = useState(false);
+
   const [liveSeries, setLiveSeries] = useState<number[]>(() => Array.from({ length: 64 }, () => 0));
   const [antiSeries, setAntiSeries] = useState<number[]>(() => Array.from({ length: 64 }, () => 0));
 
-  const mediumAvg = mediumSeries[mediumSeries.length - 1] ?? 0;
   const liveNow = liveSeries[liveSeries.length - 1] ?? 0;
   const antiNow = antiSeries[antiSeries.length - 1] ?? 0;
 
   const onMediumAvgAmplitude = useCallback((avg: number) => {
-    setMediumSeries((prev) => {
-      const next = prev.length >= 64 ? prev.slice(1) : prev.slice();
-      next.push(avg);
-      return next;
-    });
+    setMediumAvg(avg);
+  }, []);
+
+  const onMediumPreview = useCallback((frame: MediumPreviewFrame | null) => {
+    setMediumPreview(frame);
   }, []);
 
   useEffect(() => {
@@ -86,68 +90,6 @@ export default function App() {
       return next;
     });
   }, [game.antiLiveCount, game.drawNonce, game.liveCount]);
-
-  const { mediumPosSegments, mediumNegSegments, mediumMidY } = useMemo(() => {
-    const w = 120;
-    const h = 34;
-
-    const values = mediumSeries;
-    const n = values.length;
-    if (n < 2) return { mediumPosSegments: [] as string[], mediumNegSegments: [] as string[], mediumMidY: h / 2 };
-
-    let maxAbs = 0;
-    for (const v of values) {
-      maxAbs = Math.max(maxAbs, Math.abs(v));
-    }
-    maxAbs = Math.max(1e-6, maxAbs);
-
-    const midY = h / 2;
-
-    const posSegments: string[] = [];
-    const negSegments: string[] = [];
-
-    let current: string[] = [];
-    let currentSign: 'pos' | 'neg' | null = null;
-
-    const flush = () => {
-      if (current.length < 2 || !currentSign) {
-        current = [];
-        currentSign = null;
-        return;
-      }
-      const s = current.join(' ');
-      if (currentSign === 'pos') posSegments.push(s);
-      else negSegments.push(s);
-      current = [];
-      currentSign = null;
-    };
-
-    for (let i = 0; i < n; i++) {
-      const v = values[i] ?? 0;
-      const x = (i / (n - 1)) * w;
-      const y = midY - (v / maxAbs) * (h / 2);
-
-      const sign = v >= 0 ? 'pos' : 'neg';
-      const pt = `${x.toFixed(1)},${y.toFixed(1)}`;
-
-      if (currentSign === null) {
-        currentSign = sign;
-        current.push(pt);
-        continue;
-      }
-
-      if (sign !== currentSign) {
-        flush();
-        currentSign = sign;
-      }
-
-      current.push(pt);
-    }
-
-    flush();
-
-    return { mediumPosSegments: posSegments, mediumNegSegments: negSegments, mediumMidY: midY };
-  }, [mediumSeries]);
 
   const { livePoints, antiPoints } = useMemo(() => {
     const w = 120;
@@ -210,6 +152,39 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [game, startOverlayOpen]);
 
+  useEffect(() => {
+    if (!mediumPreviewOpen) return;
+    if (game.settings.mediumMode === 'off') {
+      setMediumPreviewOpen(false);
+      return;
+    }
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setMediumPreviewOpen(false);
+        return;
+      }
+
+      if (e.code === 'Space' || e.code === 'Enter' || key === 'r' || key === 'c') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, { capture: true });
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [game.settings.mediumMode, mediumPreviewOpen]);
+
   const startOptions = useMemo(
     () => [
       { id: 'blinker', title: t('start.pattern.blinker'), subtitle: t('start.pattern.blinker.subtitle'), pattern: BLINKER },
@@ -258,8 +233,57 @@ export default function App() {
     setSidebarOpen(true);
   }, []);
 
+  const mediumPreviewModal = mediumPreviewOpen
+    ? createPortal(
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('app.medium')}
+        >
+          <div
+            className="absolute inset-0 bg-black/60"
+            onMouseDown={() => setMediumPreviewOpen(false)}
+            aria-hidden="true"
+          />
+
+          <div
+            className="relative w-full max-w-[980px] overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--panel-border)] p-4">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold">{t('app.medium')}</div>
+              </div>
+              <Button
+                className="h-9 w-9 rounded-full p-0"
+                onClick={() => setMediumPreviewOpen(false)}
+                aria-label={t('common.close')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                  <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </Button>
+            </div>
+
+            <div className="p-4">
+              <div className="aspect-[16/10] w-full">
+                <MediumLake3DPreview
+                  enabled={game.settings.mediumMode !== 'off'}
+                  frame={mediumPreview}
+                  className="h-full w-full overflow-hidden rounded-xl border border-[var(--panel-border)]"
+                />
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
+
   return (
     <div className="relative h-full min-h-0 p-4">
+      {mediumPreviewModal}
        {!sidebarOpen && !startOverlayOpen ? (
 
         <div className="absolute left-6 top-6 z-40">
@@ -354,34 +378,29 @@ export default function App() {
                   style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
                 >
                   <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('app.medium')}</div>
-                  <svg viewBox="0 0 120 34" width={120} height={34} className="mt-2 block" aria-hidden="true">
-                   <line x1={0} y1={mediumMidY} x2={120} y2={mediumMidY} stroke="var(--grid)" strokeWidth={1} opacity={0.35} />
-                   {mediumNegSegments.map((points) => (
-                     <polyline
-                       key={`neg-${points}`}
-                       points={points}
-                       fill="none"
-                       stroke="var(--wave-neg)"
-                       strokeWidth={1.6}
-                       strokeLinejoin="round"
-                       strokeLinecap="round"
-                       opacity={0.95}
-                     />
-                   ))}
-                   {mediumPosSegments.map((points) => (
-                     <polyline
-                       key={`pos-${points}`}
-                       points={points}
-                       fill="none"
-                       stroke="var(--wave-pos)"
-                       strokeWidth={1.6}
-                       strokeLinejoin="round"
-                       strokeLinecap="round"
-                       opacity={0.95}
-                     />
-                   ))}
-                 </svg>
- 
+                  <div className="relative mt-2">
+                    <MediumLake3DPreview
+                      enabled={game.settings.mediumMode !== 'off'}
+                      frame={mediumPreview}
+                      className="block h-[92px] w-full overflow-hidden rounded-md"
+                    />
+                    {game.settings.mediumMode !== 'off' ? (
+                      <button
+                        type="button"
+                        className="pointer-events-auto absolute right-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--panel-border)] bg-[var(--field)] text-[var(--text)] opacity-80 shadow-sm transition-opacity hover:opacity-100"
+                        onClick={() => setMediumPreviewOpen(true)}
+                        aria-label="Expand 3D preview"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+                          <path d="M9 3H3v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M3 3l7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                          <path d="M15 21h6v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M21 21l-7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    ) : null}
+                  </div>
+
                  <div className="mt-1 flex items-center justify-between gap-2 tabular-nums opacity-90">
                    <div className="flex min-w-0 flex-1 items-center gap-1">
                       <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 opacity-80" aria-label={t('app.generation')}>
@@ -480,8 +499,9 @@ export default function App() {
                  onPaintCell={game.paintCell}
                 onNucleateCells={game.nucleateCells}
                 onNucleateAntiCells={game.nucleateAntiCells}
-                onMediumAvgAmplitude={onMediumAvgAmplitude}
-               />
+                 onMediumAvgAmplitude={onMediumAvgAmplitude}
+                 onMediumPreview={onMediumPreview}
+                />
 
              </div>
 

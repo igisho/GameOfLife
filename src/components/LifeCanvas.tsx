@@ -3,6 +3,14 @@ import type { ThemeName } from '../lib/themes';
 import { readCssVar } from '../lib/themes';
 import type { GameSettings, PaintMode } from '../game/types';
 
+export type MediumPreviewFrame = {
+  w: number;
+  h: number;
+  data: Float32Array;
+  uRef: number;
+  uHi: number;
+};
+
 type Props = {
   settings: GameSettings;
   liveRef: MutableRefObject<Set<number>>;
@@ -17,6 +25,7 @@ type Props = {
   onNucleateCells: (cells: Array<[number, number]>) => void;
   onNucleateAntiCells: (cells: Array<[number, number]>) => void;
   onMediumAvgAmplitude: (avg: number) => void;
+  onMediumPreview?: (frame: MediumPreviewFrame | null) => void;
 };
 
 function clamp(x: number, a: number, b: number) {
@@ -186,6 +195,7 @@ export default function LifeCanvas({
   onNucleateCells,
   onNucleateAntiCells,
   onMediumAvgAmplitude,
+  onMediumPreview,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -215,6 +225,11 @@ export default function LifeCanvas({
     onMediumAvgAmplitudeRef.current = onMediumAvgAmplitude;
   }, [onMediumAvgAmplitude]);
 
+  const onMediumPreviewRef = useRef(onMediumPreview);
+  useEffect(() => {
+    onMediumPreviewRef.current = onMediumPreview;
+  }, [onMediumPreview]);
+
   useEffect(() => {
     const state = waveStateRef.current;
     const ctx = waveCtxRef.current;
@@ -239,6 +254,7 @@ export default function LifeCanvas({
 
     if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
     onMediumAvgAmplitudeRef.current(0);
+    onMediumPreviewRef.current?.(null);
   }, [resetNonce]);
 
   const waveColorsRef = useRef<{ pos: Rgb; neg: Rgb; zero: Rgb } | null>(null);
@@ -478,11 +494,12 @@ export default function LifeCanvas({
 
     const currentSettings = latestSettingsRef.current;
 
-    if (currentSettings.mediumMode === 'off') {
-      ctx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
-      onMediumAvgAmplitudeRef.current(0);
-      return;
-    }
+     if (currentSettings.mediumMode === 'off') {
+       ctx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+       onMediumAvgAmplitudeRef.current(0);
+       onMediumPreviewRef.current?.(null);
+       return;
+     }
 
     // Report metric (avg amplitude).
     let sum = 0;
@@ -581,6 +598,25 @@ export default function LifeCanvas({
       }
 
       ctx.putImageData(state.imageData, 0, 0);
+    }
+
+    if (onMediumPreviewRef.current) {
+      const targetW = 40;
+      const targetH = 40;
+      const out = new Float32Array(targetW * targetH);
+
+      const srcW = state.w;
+      const srcH = state.h;
+
+      for (let y = 0; y < targetH; y++) {
+        const sy = Math.floor((y / (targetH - 1)) * (srcH - 1));
+        for (let x = 0; x < targetW; x++) {
+          const sx = Math.floor((x / (targetW - 1)) * (srcW - 1));
+          out[y * targetW + x] = state.uVis[sy * srcW + sx] ?? 0;
+        }
+      }
+
+      onMediumPreviewRef.current({ w: targetW, h: targetH, data: out, uRef: state.uRef, uHi: state.uHi });
     }
   }, []);
 
