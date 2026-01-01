@@ -269,6 +269,7 @@ export default function App() {
             <div className="p-4">
               <div className="aspect-[16/10] w-full">
                 <MediumLake3DPreview
+                  renderer="webgl"
                   enabled={game.settings.mediumMode !== 'off'}
                   frame={mediumPreview}
                   className="h-full w-full overflow-hidden rounded-xl border border-[var(--panel-border)]"
