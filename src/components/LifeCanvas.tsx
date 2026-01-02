@@ -257,8 +257,11 @@ export default function LifeCanvas({
     state.visited.fill(0);
 
     state.phase = 0;
-    state.uRef = clamp(latestSettingsRef.current.nucleationThreshold * 2.5, 0.05, 2);
+    state.uRef = clamp(latestSettingsRef.current.nucleationThreshold * 2.5, 0.05, 50);
     state.uHi = state.uRef;
+    state.absP95 = 0;
+    state.absP99 = 0;
+    state.absMax = 0;
     state.uVis.fill(0);
     state.scanOffset = 0;
 
@@ -731,10 +734,13 @@ export default function LifeCanvas({
     };
 
     // Keep medium coherent with simulation step-index.
+    // React may batch multiple Conway ticks into a single render at high speed;
+    // in that case `generation` can jump by >1. We catch up instead of resetting.
     const prevGen = lastProcessedGenerationRef.current;
     const delta = generation - prevGen;
 
-    if (delta < 0 || delta > 1) {
+    if (delta < 0) {
+      // Time moved backwards (e.g. Prev/undo or hard reset).
       resetMedium();
       lastProcessedGenerationRef.current = generation;
       lastProcessedAnnihilationNonceRef.current = annihilationNonceRef.current;
@@ -750,13 +756,13 @@ export default function LifeCanvas({
       return;
     }
 
+    const maxCatchUpGenerations = 12;
+    const generationsToSimulate = Math.min(delta, maxCatchUpGenerations);
+
     // Deterministic medium evolution: fixed total dt per Conway generation.
     const fixedDtPerGeneration = 1 / 60;
     const substeps = clamp(Math.round(currentSettings.mediumStepsPerGeneration), 1, 12);
     const hStep = fixedDtPerGeneration / substeps;
-
-    // Use the up-to-date living cells map for this generation.
-    rebuildSourceMap();
 
     const wrap = currentSettings.wrap;
 
@@ -844,172 +850,179 @@ export default function LifeCanvas({
       state.uNext = prev;
     };
 
-    for (let sub = 0; sub < substeps; sub++) {
-      stepMediumOnce();
-    }
+    for (let genStep = 0; genStep < generationsToSimulate; genStep++) {
+      // Use the up-to-date living cells map for this generation.
+      rebuildSourceMap();
 
-    if (currentSettings.mediumMode === 'nucleation') {
-      const threshold = clamp(currentSettings.nucleationThreshold, 0.01, 2);
-      const cooldownFrames = Math.max(1, Math.round(0.6 * 60));
-
-      const maxNucleiPerGeneration = 4;
-      const maxRadiusCells = 8;
-
-      state.visited.fill(0);
-
-      let nucleusCount = 0;
-      const nucleiPos: Array<[number, number]> = [];
-      const nucleiNeg: Array<[number, number]> = [];
-
-      const component: number[] = [];
-      const stack: number[] = [];
-
-      const w = state.w;
-      const h = state.h;
-
-      const driveA = state.lap1;
-      const driveB = state.lap2;
-
-      for (let i = 0; i < state.uCurr.length; i++) {
-        driveA[i] = state.uCurr[i];
+      for (let sub = 0; sub < substeps; sub++) {
+        stepMediumOnce();
       }
 
-      const blur3x3 = (src: Float32Array, dst: Float32Array) => {
-        for (let y = 0; y < h; y++) {
-          const ym1 = wrap ? (y - 1 + h) % h : Math.max(0, y - 1);
-          const yp1 = wrap ? (y + 1) % h : Math.min(h - 1, y + 1);
-          for (let x = 0; x < w; x++) {
-            const xm1 = wrap ? (x - 1 + w) % w : Math.max(0, x - 1);
-            const xp1 = wrap ? (x + 1) % w : Math.min(w - 1, x + 1);
+      if (currentSettings.mediumMode === 'nucleation') {
+        const threshold = clamp(currentSettings.nucleationThreshold, 0.01, 2);
+        const cooldownFrames = Math.max(1, Math.round(0.6 * 60));
 
-            const sum =
-              src[idxOf(w, xm1, ym1)] +
-              src[idxOf(w, x, ym1)] +
-              src[idxOf(w, xp1, ym1)] +
-              src[idxOf(w, xm1, y)] +
-              src[idxOf(w, x, y)] +
-              src[idxOf(w, xp1, y)] +
-              src[idxOf(w, xm1, yp1)] +
-              src[idxOf(w, x, yp1)] +
-              src[idxOf(w, xp1, yp1)];
+        const maxNucleiPerGeneration = 4;
+        const maxRadiusCells = 8;
 
-            dst[idxOf(w, x, y)] = sum / 9;
-          }
+        state.visited.fill(0);
+
+        let nucleusCount = 0;
+        const nucleiPos: Array<[number, number]> = [];
+        const nucleiNeg: Array<[number, number]> = [];
+
+        const component: number[] = [];
+        const stack: number[] = [];
+
+        const w = state.w;
+        const h = state.h;
+
+        const driveA = state.lap1;
+        const driveB = state.lap2;
+
+        for (let i = 0; i < state.uCurr.length; i++) {
+          driveA[i] = state.uCurr[i];
         }
-      };
 
-      blur3x3(driveA, driveB);
-      blur3x3(driveB, driveA);
+        const blur3x3 = (src: Float32Array, dst: Float32Array) => {
+          for (let y = 0; y < h; y++) {
+            const ym1 = wrap ? (y - 1 + h) % h : Math.max(0, y - 1);
+            const yp1 = wrap ? (y + 1) % h : Math.min(h - 1, y + 1);
+            for (let x = 0; x < w; x++) {
+              const xm1 = wrap ? (x - 1 + w) % w : Math.max(0, x - 1);
+              const xp1 = wrap ? (x + 1) % w : Math.min(w - 1, x + 1);
 
-      const pushNeighbor = (x: number, y: number) => {
-        const xx = wrap ? (x + w) % w : clamp(x, 0, w - 1);
-        const yy = wrap ? (y + h) % h : clamp(y, 0, h - 1);
-        stack.push(idxOf(w, xx, yy));
-      };
+              const sum =
+                src[idxOf(w, xm1, ym1)] +
+                src[idxOf(w, x, ym1)] +
+                src[idxOf(w, xp1, ym1)] +
+                src[idxOf(w, xm1, y)] +
+                src[idxOf(w, x, y)] +
+                src[idxOf(w, xp1, y)] +
+                src[idxOf(w, xm1, yp1)] +
+                src[idxOf(w, x, yp1)] +
+                src[idxOf(w, xp1, yp1)];
 
-      const len = state.uCurr.length;
-      const start = ((state.scanOffset % len) + len) % len;
-      state.scanOffset = (start + 9973) % len;
-
-      for (let n = 0; n < len; n++) {
-        if (nucleusCount >= maxNucleiPerGeneration) break;
-        const i = (start + n) % len;
-        if (state.visited[i]) continue;
-        if (state.cooldown[i] > 0) continue;
-
-        const v0 = driveA[i];
-        let sign: 1 | -1 | 0 = 0;
-        if (v0 > threshold) sign = 1;
-        else if (v0 < -threshold) sign = -1;
-        else continue;
-
-        if (sign === -1 && !currentSettings.antiparticlesEnabled) continue;
-
-        component.length = 0;
-        stack.length = 0;
-        stack.push(i);
-
-        let peakIdx = i;
-        let peakValue = v0;
-
-        while (stack.length > 0) {
-          const j = stack.pop()!;
-          if (state.visited[j]) continue;
-          state.visited[j] = 1;
-
-          if (state.cooldown[j] > 0) continue;
-          const v = driveA[j];
-
-          if (sign === 1) {
-            if (v < threshold) continue;
-          } else {
-            if (v > -threshold) continue;
-          }
-
-          component.push(j);
-          if (sign === 1) {
-            if (v > peakValue) {
-              peakValue = v;
-              peakIdx = j;
-            }
-          } else {
-            if (v < peakValue) {
-              peakValue = v;
-              peakIdx = j;
+              dst[idxOf(w, x, y)] = sum / 9;
             }
           }
+        };
 
-          const y = Math.floor(j / w);
-          const x = j % w;
+        blur3x3(driveA, driveB);
+        blur3x3(driveB, driveA);
 
-          pushNeighbor(x - 1, y);
-          pushNeighbor(x + 1, y);
-          pushNeighbor(x, y - 1);
-          pushNeighbor(x, y + 1);
-        }
+        const pushNeighbor = (x: number, y: number) => {
+          const xx = wrap ? (x + w) % w : clamp(x, 0, w - 1);
+          const yy = wrap ? (y + h) % h : clamp(y, 0, h - 1);
+          stack.push(idxOf(w, xx, yy));
+        };
 
-        if (component.length === 0) continue;
+        const len = state.uCurr.length;
+        const start = ((state.scanOffset % len) + len) % len;
+        state.scanOffset = (start + 9973) % len;
 
-        for (const j of component) state.cooldown[j] = cooldownFrames;
+        for (let n = 0; n < len; n++) {
+          if (nucleusCount >= maxNucleiPerGeneration) break;
+          const i = (start + n) % len;
+          if (state.visited[i]) continue;
+          if (state.cooldown[i] > 0) continue;
 
-        const peakY = Math.floor(peakIdx / w);
-        const peakX = peakIdx % w;
+          const v0 = driveA[i];
+          let sign: 1 | -1 | 0 = 0;
+          if (v0 > threshold) sign = 1;
+          else if (v0 < -threshold) sign = -1;
+          else continue;
 
-        const centerR = Math.floor(((peakY + 0.5) / h) * currentSettings.rows);
-        const centerC = Math.floor(((peakX + 0.5) / w) * currentSettings.cols);
+          if (sign === -1 && !currentSettings.antiparticlesEnabled) continue;
 
-        const peakMag = Math.abs(peakValue);
-        const over = Math.max(0, peakMag - threshold);
-        const rel = over / Math.max(1e-6, threshold);
-        const radiusCells = clamp(Math.round(Math.sqrt(rel) * 4), 0, maxRadiusCells);
+          component.length = 0;
+          stack.length = 0;
+          stack.push(i);
 
-        nucleusCount++;
+          let peakIdx = i;
+          let peakValue = v0;
 
-        const out = sign === 1 ? nucleiPos : nucleiNeg;
+          while (stack.length > 0) {
+            const j = stack.pop()!;
+            if (state.visited[j]) continue;
+            state.visited[j] = 1;
 
-        if (radiusCells <= 1) {
-          const top = centerR;
-          const left = centerC;
-          out.push([top, left], [top, left + 1], [top + 1, left], [top + 1, left + 1]);
-          continue;
-        }
+            if (state.cooldown[j] > 0) continue;
+            const v = driveA[j];
 
-        for (let dr = -radiusCells; dr <= radiusCells; dr++) {
-          for (let dc = -radiusCells; dc <= radiusCells; dc++) {
-            if (dr * dr + dc * dc > radiusCells * radiusCells) continue;
-            out.push([centerR + dr, centerC + dc]);
+            if (sign === 1) {
+              if (v < threshold) continue;
+            } else {
+              if (v > -threshold) continue;
+            }
+
+            component.push(j);
+            if (sign === 1) {
+              if (v > peakValue) {
+                peakValue = v;
+                peakIdx = j;
+              }
+            } else {
+              if (v < peakValue) {
+                peakValue = v;
+                peakIdx = j;
+              }
+            }
+
+            const y = Math.floor(j / w);
+            const x = j % w;
+
+            pushNeighbor(x - 1, y);
+            pushNeighbor(x + 1, y);
+            pushNeighbor(x, y - 1);
+            pushNeighbor(x, y + 1);
+          }
+
+          if (component.length === 0) continue;
+
+          for (const j of component) state.cooldown[j] = cooldownFrames;
+
+          const peakY = Math.floor(peakIdx / w);
+          const peakX = peakIdx % w;
+
+          const centerR = Math.floor(((peakY + 0.5) / h) * currentSettings.rows);
+          const centerC = Math.floor(((peakX + 0.5) / w) * currentSettings.cols);
+
+          const peakMag = Math.abs(peakValue);
+          const over = Math.max(0, peakMag - threshold);
+          const rel = over / Math.max(1e-6, threshold);
+          const radiusCells = clamp(Math.round(Math.sqrt(rel) * 4), 0, maxRadiusCells);
+
+          nucleusCount++;
+
+          const out = sign === 1 ? nucleiPos : nucleiNeg;
+
+          if (radiusCells <= 1) {
+            const top = centerR;
+            const left = centerC;
+            out.push([top, left], [top, left + 1], [top + 1, left], [top + 1, left + 1]);
+            continue;
+          }
+
+          for (let dr = -radiusCells; dr <= radiusCells; dr++) {
+            for (let dc = -radiusCells; dc <= radiusCells; dc++) {
+              if (dr * dr + dc * dc > radiusCells * radiusCells) continue;
+              out.push([centerR + dr, centerC + dc]);
+            }
           }
         }
+
+        if (nucleiPos.length > 0) onNucleateCells(nucleiPos);
+        if (currentSettings.antiparticlesEnabled && nucleiNeg.length > 0) onNucleateAntiCells(nucleiNeg);
       }
 
-      if (nucleiPos.length > 0) onNucleateCells(nucleiPos);
-      if (currentSettings.antiparticlesEnabled && nucleiNeg.length > 0) onNucleateAntiCells(nucleiNeg);
+      for (let i = 0; i < state.cooldown.length; i++) {
+        if (state.cooldown[i] > 0) state.cooldown[i]--;
+      }
     }
 
-    for (let i = 0; i < state.cooldown.length; i++) {
-      if (state.cooldown[i] > 0) state.cooldown[i]--;
-    }
-
+    // If the UI skipped more than `maxCatchUpGenerations` Conway ticks, we intentionally
+    // keep the medium state (no hard reset) and just resync the generation index.
     lastProcessedGenerationRef.current = generation;
     renderWave();
   }, [annihilationRef, generation, onNucleateAntiCells, onNucleateCells, rebuildSourceMap, renderWave]);
