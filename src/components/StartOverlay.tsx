@@ -21,7 +21,8 @@ function patternSize(pattern: string[]) {
 function PatternPreview({ pattern, variant = 'default' }: { pattern: string[]; variant?: 'default' | 'onPrimary' }) {
   const { width, height } = patternSize(pattern);
 
-  const onClass = variant === 'onPrimary' ? 'bg-[var(--on-primary)]' : 'bg-[var(--cell)]';
+  const liveClass = variant === 'onPrimary' ? 'bg-[var(--on-primary)]' : 'bg-[var(--cell)]';
+  const antiClass = 'bg-[var(--anti-cell)]';
   const offClass =
     variant === 'onPrimary' ? 'bg-[rgb(255_255_255_/_0.18)]' : 'bg-[color-mix(in srgb, var(--canvas) 70%, transparent)]';
   const borderClass =
@@ -36,11 +37,14 @@ function PatternPreview({ pattern, variant = 'default' }: { pattern: string[]; v
           const r = Math.floor(idx / Math.max(1, width));
           const c = idx % Math.max(1, width);
           const row = pattern[r] ?? '';
-          const on = row[c] === '#';
+          const cell = row[c];
+          const isLive = cell === '#' || cell === 'O';
+          const isAnti = cell === '@' || cell === 'A';
+          const fillClass = isLive ? liveClass : isAnti ? antiClass : offClass;
           return (
             <div
               key={`${r}:${c}`}
-              className={cn('h-3 w-3 rounded-[4px] border sm:h-4 sm:w-4 md:h-5 md:w-5', borderClass, on ? onClass : offClass)}
+              className={cn('h-3 w-3 rounded-[4px] border sm:h-4 sm:w-4 md:h-5 md:w-5', borderClass, fillClass)}
             />
           );
         })}

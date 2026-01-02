@@ -28,6 +28,13 @@ export const MESSAGES: Record<Locale, Messages> = {
     'start.pattern.doubleBlock': 'Double block',
     'start.pattern.doubleBlock.subtitle': 'OO / .OO',
 
+    'start.pattern.blinkerPair': 'Blinker ±',
+    'start.pattern.blinkerPair.subtitle': '3 + 3 (stack)',
+    'start.pattern.l3Pair': 'L ±',
+    'start.pattern.l3Pair.subtitle': '3 + 3 (diagonal)',
+    'start.pattern.doubleBlockPair': 'Double block ±',
+    'start.pattern.doubleBlockPair.subtitle': '6 + 6 (blocks)',
+
     'app.openMenu': 'Open menu',
     'app.closeMenu': 'Close menu',
     'app.status.running': 'Running',
@@ -240,6 +247,13 @@ export const MESSAGES: Record<Locale, Messages> = {
     'start.pattern.doubleBlock': 'Dvojblok',
     'start.pattern.doubleBlock.subtitle': 'OO / .OO',
 
+    'start.pattern.blinkerPair': 'Blinker ±',
+    'start.pattern.blinkerPair.subtitle': '3 + 3 (nad sebou)',
+    'start.pattern.l3Pair': 'L ±',
+    'start.pattern.l3Pair.subtitle': '3 + 3 (diagonála)',
+    'start.pattern.doubleBlockPair': 'Dvojblok ±',
+    'start.pattern.doubleBlockPair.subtitle': '6 + 6 (bloky)',
+
     'app.openMenu': 'Otvoriť menu',
     'app.closeMenu': 'Zavrieť menu',
     'app.status.running': 'Beží',
@@ -441,6 +455,13 @@ export const MESSAGES: Record<Locale, Messages> = {
     'start.pattern.doubleBlock': 'Doppelblock',
     'start.pattern.doubleBlock.subtitle': 'OO / .OO',
 
+    'start.pattern.blinkerPair': 'Blinker ±',
+    'start.pattern.blinkerPair.subtitle': '3 + 3 (gestapelt)',
+    'start.pattern.l3Pair': 'L ±',
+    'start.pattern.l3Pair.subtitle': '3 + 3 (diagonal)',
+    'start.pattern.doubleBlockPair': 'Doppelblock ±',
+    'start.pattern.doubleBlockPair.subtitle': '6 + 6 (Blöcke)',
+
     'app.openMenu': 'Menü öffnen',
     'app.closeMenu': 'Menü schließen',
     'app.status.running': 'Läuft',
@@ -634,6 +655,13 @@ export const MESSAGES: Record<Locale, Messages> = {
     'start.pattern.l3.subtitle': 'OO / .O',
     'start.pattern.doubleBlock': 'Double bloc',
     'start.pattern.doubleBlock.subtitle': 'OO / .OO',
+
+    'start.pattern.blinkerPair': 'Blinker ±',
+    'start.pattern.blinkerPair.subtitle': '3 + 3 (empilé)',
+    'start.pattern.l3Pair': 'L ±',
+    'start.pattern.l3Pair.subtitle': '3 + 3 (diagonal)',
+    'start.pattern.doubleBlockPair': 'Double bloc ±',
+    'start.pattern.doubleBlockPair.subtitle': '6 + 6 (blocs)',
 
     'app.openMenu': 'Ouvrir le menu',
     'app.closeMenu': 'Fermer le menu',

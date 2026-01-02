@@ -93,14 +93,22 @@ function PatternPreview({ pattern }: { pattern: string[] }) {
           const r = Math.floor(idx / Math.max(1, width));
           const c = idx % Math.max(1, width);
           const row = pattern[r] ?? '';
-          const on = row[c] === '#';
+          const cell = row[c];
+
+          const fillClass =
+            cell === '#' || cell === 'O'
+              ? 'bg-[var(--cell)]'
+              : cell === '@' || cell === 'A'
+                ? 'bg-[var(--anti-cell)]'
+                : 'bg-[color-mix(in srgb, var(--canvas) 70%, transparent)]';
+
           return (
             <div
               key={`${r}:${c}`}
               className={cn(
                 'h-3 w-3 rounded-[4px] border sm:h-4 sm:w-4',
                 'border-[color-mix(in srgb, var(--grid) 55%, transparent)]',
-                on ? 'bg-[var(--cell)]' : 'bg-[color-mix(in srgb, var(--canvas) 70%, transparent)]'
+                fillClass
               )}
             />
           );

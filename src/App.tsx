@@ -57,6 +57,34 @@ function isTypingTarget(target: EventTarget | null) {
   return target.isContentEditable;
 }
 
+
+type ParsedDualAsciiPattern = {
+  width: number;
+  height: number;
+  liveCells: Array<[number, number]>;
+  antiCells: Array<[number, number]>;
+};
+
+function parseDualAsciiPattern(pattern: string[]): ParsedDualAsciiPattern {
+  const height = pattern.length;
+  let width = 0;
+  for (const row of pattern) width = Math.max(width, row.length);
+
+  const liveCells: Array<[number, number]> = [];
+  const antiCells: Array<[number, number]> = [];
+
+  for (let r = 0; r < height; r++) {
+    const row = pattern[r] ?? '';
+    for (let c = 0; c < row.length; c++) {
+      const cell = row[c];
+      if (cell === 'O' || cell === '#') liveCells.push([r, c]);
+      else if (cell === 'A' || cell === '@') antiCells.push([r, c]);
+    }
+  }
+
+  return { width, height, liveCells, antiCells };
+}
+
 export default function App() {
   const game = useGameOfLife();
   const { t } = useI18n();
@@ -193,15 +221,65 @@ export default function App() {
     };
   }, [game.settings.mediumMode, mediumPreviewOpen]);
 
-  const startOptions = useMemo(
+  const BLINKER_PAIR: string[] = ['OOO', 'AAA'];
+  const L3_PAIR: string[] = ['XOO', 'AXO', 'AAX'];
+  const DOUBLE_BLOCK_PAIR: string[] = ['XOOX', 'XXOO', 'AAXX', 'XAAX'];
+
+  type StartOption = {
+    id: string;
+    title: string;
+    subtitle: string;
+    // Pattern used only for UI preview tiles.
+    pattern: string[];
+    // Pattern seeded as live-only into the Conway grid.
+    livePattern?: string[];
+    // Pattern seeded as live + anti into the Conway grid.
+    dualPattern?: string[];
+  };
+
+  const startOptions = useMemo<StartOption[]>(
     () => [
-      { id: 'blinker', title: t('start.pattern.blinker'), subtitle: t('start.pattern.blinker.subtitle'), pattern: BLINKER },
-      { id: 'l3', title: t('start.pattern.l3'), subtitle: t('start.pattern.l3.subtitle'), pattern: START_L3 },
+      {
+        id: 'blinker',
+        title: t('start.pattern.blinker'),
+        subtitle: t('start.pattern.blinker.subtitle'),
+        pattern: BLINKER,
+        livePattern: BLINKER,
+      },
+      {
+        id: 'l3',
+        title: t('start.pattern.l3'),
+        subtitle: t('start.pattern.l3.subtitle'),
+        pattern: START_L3,
+        livePattern: START_L3,
+      },
       {
         id: 'shifted',
         title: t('start.pattern.doubleBlock'),
         subtitle: t('start.pattern.doubleBlock.subtitle'),
         pattern: START_SHIFTED_2X2,
+        livePattern: START_SHIFTED_2X2,
+      },
+      {
+        id: 'blinker_pair',
+        title: t('start.pattern.blinkerPair'),
+        subtitle: t('start.pattern.blinkerPair.subtitle'),
+        pattern: BLINKER_PAIR,
+        dualPattern: BLINKER_PAIR,
+      },
+      {
+        id: 'l3_pair',
+        title: t('start.pattern.l3Pair'),
+        subtitle: t('start.pattern.l3Pair.subtitle'),
+        pattern: L3_PAIR,
+        dualPattern: L3_PAIR,
+      },
+      {
+        id: 'shifted_pair',
+        title: t('start.pattern.doubleBlockPair'),
+        subtitle: t('start.pattern.doubleBlockPair.subtitle'),
+        pattern: DOUBLE_BLOCK_PAIR,
+        dualPattern: DOUBLE_BLOCK_PAIR,
       },
     ],
     [t]
@@ -220,6 +298,30 @@ export default function App() {
     el.scrollTo({ left, top, behavior: 'smooth' });
   }, [game.settings.cellSize, game.settings.cols, game.settings.rows]);
 
+  const startWithDualPattern = useCallback(
+    (pattern: string[]) => {
+      const s = game.settings;
+      const { width, height, liveCells, antiCells } = parseDualAsciiPattern(pattern);
+      if (liveCells.length === 0 && antiCells.length === 0) return;
+
+      game.clearAll();
+      if (!s.antiparticlesEnabled) game.setAntiparticlesEnabled(true);
+
+      const top = Math.floor(s.rows / 2 - height / 2);
+      const left = Math.floor(s.cols / 2 - width / 2);
+
+      if (liveCells.length > 0) {
+        game.nucleateCells(liveCells.map(([r, c]) => [top + r, left + c] as [number, number]));
+      }
+      if (antiCells.length > 0) {
+        game.nucleateAntiCells(antiCells.map(([r, c]) => [top + r, left + c] as [number, number]));
+      }
+
+      game.setRunning(true);
+    },
+    [game]
+  );
+
   const onSelectStartPattern = useCallback(
     (id: string) => {
       const opt = startOptions.find((o) => o.id === id);
@@ -228,12 +330,12 @@ export default function App() {
       setStartOverlayOpen(false);
       setSidebarOpen(false);
 
-      game.startWithPattern(opt.pattern);
+      if (opt.dualPattern) startWithDualPattern(opt.dualPattern);
+      else if (opt.livePattern) game.startWithPattern(opt.livePattern);
 
-      // Scroll after the DOM has a chance to paint.
       window.requestAnimationFrame(() => centerCanvasScroll());
     },
-    [centerCanvasScroll, game, startOptions]
+    [centerCanvasScroll, game, startOptions, startWithDualPattern]
   );
 
   const onQuickStartFromSidebar = useCallback(
@@ -241,10 +343,12 @@ export default function App() {
       const opt = startOptions.find((o) => o.id === id);
       if (!opt) return;
 
-      game.startWithPattern(opt.pattern);
+      if (opt.dualPattern) startWithDualPattern(opt.dualPattern);
+      else if (opt.livePattern) game.startWithPattern(opt.livePattern);
+
       window.requestAnimationFrame(() => centerCanvasScroll());
     },
-    [centerCanvasScroll, game, startOptions]
+    [centerCanvasScroll, game, startOptions, startWithDualPattern]
   );
 
   const onAdvancedStart = useCallback(() => {
