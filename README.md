@@ -5,6 +5,7 @@ A Vite + React + TypeScript single‑page app that renders Conway’s Game of Li
 This project is **not a physics simulation**. It is a deliberately controllable toy model meant to make certain ideas intuitive: **emergent objects as stable modes**, **threshold effects**, **memory / non‑Markov dynamics**, and **feedback between “things” and “environment”.**
 
 Repository: https://github.com/igisho/GameOfLife
+Live demo: https://conway.altky.sk/
 
 ---
 
@@ -144,6 +145,16 @@ A few repeatable ways to probe “what causes what”:
 - Vite + React + TypeScript
 - TailwindCSS (via PostCSS)
 - Radix UI primitives (Slider/Select/Checkbox/ScrollArea)
+
+---
+
+## Roadmap (experimental)
+
+These are exploratory directions for studying dynamical regimes in this toy model. They are **not** claims about real particle physics.
+
+- **Multi-species excitations:** extend beyond a single matter/anti-matter sign by introducing multiple discrete, *spin-like internal states* (i.e., distinct excitation “types”).
+- **Interaction experiments:** explore different cross-coupling / annihilation rules between types, and how memory + thresholds bias long-run composition.
+- **Diagnostics:** add observables (counts per type, symmetry/bias metrics, attractor hints) to make comparisons reproducible.
 
 ---
 
