@@ -495,19 +495,21 @@ export default function MediumLake3DPreview({ frame, enabled, className, rendere
         // xObj / yObj step between neighbor vertices is 2/seg.
         const dzdx = (zR - zL) * (seg / 4);
         const dzdy = (zU - zD) * (seg / 4);
-        const nGrid = normalize3(-dzdx, -dzdy, 4);
+        // y axis is flipped in object space (see below), so keep that in mind.
+        const nGrid = normalize3(-dzdx, dzdy, 4);
 
-        // Match the small isometric preview orientation by relying on the camera's azimuth.
-        // Apply 180° in-plane rotation to keep the same "handedness" as before.
-        const xPos = -xObj;
+        // Grid-aligned orientation (trapezoid perspective):
+        // x increases to the right; y increases downward on the grid,
+        // but the camera looks "from the bottom" so we flip y in object space.
+        const xPos = xObj;
         const yPos = -yObj;
 
         verts[o++] = xPos;
         verts[o++] = yPos;
         verts[o++] = z + zOffset;
 
-        verts[o++] = -nGrid.x;
-        verts[o++] = -nGrid.y;
+        verts[o++] = nGrid.x;
+        verts[o++] = nGrid.y;
         verts[o++] = nGrid.z;
 
         verts[o++] = u;
@@ -533,15 +535,16 @@ export default function MediumLake3DPreview({ frame, enabled, className, rendere
 
     const aspect = w / h;
     const proj = mat4Perspective((42 * Math.PI) / 180, aspect, 0.1, 30);
-    // ~20% zoom-in (closer camera).
-    const view = mat4LookAt({ x: 1.75, y: -1.75, z: 1.21 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
+    // Trapezoid perspective aligned with the grid: camera sits "below" the grid
+    // and looks toward its center so the bottom row stays at the bottom.
+    const view = mat4LookAt({ x: 0, y: -2.6, z: 1.35 }, { x: 0, y: 0.25, z: 0.1 }, { x: 0, y: 0, z: 1 });
     const model = mat4Identity();
     const mvp = mat4Mul(proj, mat4Mul(view, model));
 
     gl.uniformMatrix4fv(state.uMvp, false, mvp);
     gl.uniformMatrix4fv(state.uModel, false, model);
 
-    const light = normalize3(1, -1, 1.2);
+    const light = normalize3(-0.7, -1.0, 1.2);
     gl.uniform3f(state.uLight, light.x, light.y, light.z);
 
     const pos = rgbToVec3(colors.pos);
@@ -591,35 +594,39 @@ export default function MediumLake3DPreview({ frame, enabled, className, rendere
     if (gridW < 2 || gridH < 2 || values.length < gridW * gridH) return;
 
     const pad = 6 * dpr;
-    const span = gridW + gridH;
 
-    const cell = Math.max(1, Math.min((w - 2 * pad) / span, (h - 2 * pad) / (span * 0.62)));
+    // Trapezoid perspective: far rows are narrower, near rows wider.
+    const farScale = 0.58;
+    const nearScale = 1;
 
-    const maxDepth = gridW + gridH - 2;
+    const maxWidthUnits = Math.max(1, (gridW - 1) * nearScale);
+    const cell = Math.max(1, (w - 2 * pad) / maxWidthUnits);
+
+    const yStep = Math.min(cell * 0.78, (h - 2 * pad) / Math.max(1, gridH - 1));
+    const usableH = (gridH - 1) * yStep;
 
     const originX = w / 2;
-    // Shift the origin up so the full (x+y) span fits.
-    const originY = clamp(h - pad - maxDepth * cell * 0.52, pad, h - pad);
+    const originY = pad + (h - 2 * pad - usableH) / 2;
 
     const zRef = Math.max(0.03, frame.uRef);
     const heightGain = 0.5;
-    const zScale = ((h * 0.18) / zRef) * heightGain;
+    const zScale = ((h * 0.16) / zRef) * heightGain;
 
-    const light = normalize3(1, -1, 1.2);
+    const light = normalize3(-0.7, -1.0, 1.2);
 
     const project = (x: number, y: number, z: number) => {
-      const sx = (x - y) * cell + originX;
-      const sy = (x + y) * cell * 0.52 + originY - z;
+      const t = (gridH - 1) > 0 ? y / (gridH - 1) : 0;
+      const scale = farScale + (nearScale - farScale) * t;
+      const sx = (x - (gridW - 1) / 2) * cell * scale + originX;
+      const sy = originY + y * yStep - z;
       return { x: sx, y: sy };
     };
 
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
 
-    for (let depth = 0; depth <= maxDepth; depth++) {
-      for (let y = 0; y < gridH - 1; y++) {
-        const x = depth - y;
-        if (x < 0 || x >= gridW - 1) continue;
+    for (let y = 0; y < gridH - 1; y++) {
+      for (let x = 0; x < gridW - 1; x++) {
 
         const i00 = y * gridW + x;
         const i10 = y * gridW + (x + 1);
@@ -654,7 +661,8 @@ export default function MediumLake3DPreview({ frame, enabled, className, rendere
         const base = uAvg >= 0 ? colors.pos : colors.neg;
         const tinted = lerpRgb(colors.zero, base, 0.22 + 0.78 * Math.pow(mag, 0.85));
 
-        const depthFog = clamp(depth / maxDepth, 0, 1);
+        const tDepth = (gridH - 2) > 0 ? y / (gridH - 2) : 1;
+        const depthFog = clamp(1 - tDepth, 0, 1);
         const fogged = lerpRgb(tinted, colors.zero, depthFog * 0.22);
 
         const shade = 0.55 + 0.45 * diffuse;

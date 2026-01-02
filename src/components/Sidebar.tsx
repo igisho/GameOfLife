@@ -338,17 +338,206 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <SectionTitle>{t('info.simNote.title')}</SectionTitle>
-                  <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">
-                    <ul className="list-disc space-y-1 pl-5 text-sm">
-                      <li>{t('info.simNote.0')}</li>
-                      <li>{t('info.simNote.1')}</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </ScrollArea>
+                 <div className="space-y-2">
+                   <SectionTitle>{t('info.simNote.title')}</SectionTitle>
+                   <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">
+                     <ul className="list-disc space-y-1 pl-5 text-sm">
+                       <li>{t('info.simNote.0')}</li>
+                       <li>{t('info.simNote.1')}</li>
+                     </ul>
+                   </div>
+                 </div>
+
+                 <div className="space-y-2">
+                   <SectionTitle>{t('info.modelMath.title')}</SectionTitle>
+                   <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">
+                     <div className="text-xs opacity-80">{t('info.modelMath.subtitle')}</div>
+
+                     <details className="mt-3">
+                       <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide opacity-80">
+                         {t('info.modelMath.open')}
+                       </summary>
+
+                       <div className="mt-3 rounded-xl border border-[var(--panel-border)] bg-[var(--panel)] p-3">
+                         <div className="mb-2 text-xs opacity-80">{t('info.modelMath.warning')}</div>
+                         <pre className="max-w-full overflow-x-auto whitespace-pre text-[11px] leading-5 tabular-nums">
+{(() => {
+  const s = game.settings;
+
+  const fmt = (n: number, digits = 4) => {
+    if (!Number.isFinite(n)) return 'NaN';
+    const v = Number(n.toFixed(digits));
+    return String(v);
+  };
+
+  const fmtBool = (v: boolean) => (v ? 'true' : 'false');
+  const fmtMode = (v: string) => v;
+
+  const waveW = clamp(Math.floor(s.cols / 4), 160, 512);
+  const waveH = clamp(Math.floor(s.rows / 4), 160, 512);
+
+  const mediumSteps = clamp(Math.round(s.mediumStepsPerGeneration), 1, 12);
+  const fixedDtPerGeneration = 1 / 60;
+  const hStep = fixedDtPerGeneration / mediumSteps;
+
+  const hopHz = clamp(s.hopHz, 0, 20);
+  const hopStrength = clamp(s.hopStrength, 0, 3);
+  const hopKick = 0.16 * hopStrength;
+
+  const memoryRate = clamp(s.mediumMemoryRate, 0, 0.3);
+  const memoryCoupling = clamp(s.mediumMemoryCoupling, 0, 60);
+  const nonlinearity = clamp(s.mediumNonlinearity, 0, 60);
+
+  const annihilationBurst = clamp(s.annihilationBurst, 0, 1);
+  const neighborShare = annihilationBurst * 0.25;
+
+  const nucleationThreshold = clamp(s.nucleationThreshold, 0.01, 2);
+
+  const ampLimit = clamp(s.mediumAmplitudeLimiter, 0, 50);
+
+  const c2 = 36;
+  const gamma = 2.2;
+  const kappa = 2.0;
+
+  const dt2 = hStep * hStep;
+  const gFactor = gamma * hStep * 0.5;
+  const denom = 1 + gFactor;
+
+  const lines: string[] = [];
+
+  lines.push(`## ${t('info.modelMath.block.params')}`);
+  lines.push(`grid: rows=${s.rows} cols=${s.cols} wrap=${fmtBool(s.wrap)}`);
+  lines.push(`conway rule: B3/S23 (Moore 8-neighborhood)`);
+  lines.push(`antiparticlesEnabled=${fmtBool(s.antiparticlesEnabled)} (same Conway rule)`);
+  lines.push('');
+
+  lines.push(`wave grid (downsample): w=clamp(floor(cols/4),160,512)=${waveW}  h=clamp(floor(rows/4),160,512)=${waveH}`);
+  lines.push('');
+
+  lines.push(`mediumMode=${fmtMode(s.mediumMode)}`);
+  lines.push(`medium dt per Conway generation: fixedDtPerGeneration = 1/60`);
+  lines.push(`mediumStepsPerGeneration: requested=${fmt(s.mediumStepsPerGeneration, 2)} -> substeps=clamp(round(.),1,12)=${mediumSteps}`);
+  lines.push(`hStep = (1/60)/substeps = ${fmt(hStep, 6)}`);
+  lines.push('');
+
+  lines.push(`hopHz=clamp(${fmt(s.hopHz, 3)},0,20)=${fmt(hopHz, 3)}  hopStrength=clamp(${fmt(s.hopStrength, 3)},0,3)=${fmt(hopStrength, 3)}`);
+  lines.push(`hopKick = 0.16*hopStrength = ${fmt(hopKick, 6)}`);
+  lines.push('');
+
+  lines.push(`annihilationBurst=clamp(${fmt(s.annihilationBurst, 3)},0,1)=${fmt(annihilationBurst, 3)}`);
+  lines.push(`neighborShare = annihilationBurst*0.25 = ${fmt(neighborShare, 6)}`);
+  lines.push('');
+
+  lines.push(`memoryRate=clamp(${fmt(s.mediumMemoryRate, 4)},0,0.3)=${fmt(memoryRate, 4)}`);
+  lines.push(`memoryCoupling=clamp(${fmt(s.mediumMemoryCoupling, 3)},0,60)=${fmt(memoryCoupling, 3)}`);
+  lines.push(`nonlinearity=clamp(${fmt(s.mediumNonlinearity, 3)},0,60)=${fmt(nonlinearity, 3)}`);
+  lines.push('');
+
+  lines.push(`nucleationThreshold=clamp(${fmt(s.nucleationThreshold, 4)},0.01,2)=${fmt(nucleationThreshold, 4)}`);
+  lines.push(`lakeNoiseEnabled=${fmtBool(s.lakeNoiseEnabled)} intensity=${fmt(s.lakeNoiseIntensity, 4)} blobSize=${fmt(s.lakeBlobSize, 2)} blobShape=${s.lakeBlobShape}`);
+  lines.push('');
+
+  lines.push(`mediumAmplitudeLimiter (numerical): clamp(${fmt(s.mediumAmplitudeLimiter, 3)},0,50)=${fmt(ampLimit, 3)} (0 = off)`);
+  lines.push('');
+
+  lines.push(`constants: c2=${c2} gamma=${gamma} kappa=${kappa}`);
+  lines.push(`dt2=hStep^2=${fmt(dt2, 8)}  gFactor=gamma*hStep*0.5=${fmt(gFactor, 8)}  denom=(1+gFactor)=${fmt(denom, 8)}`);
+  lines.push('');
+
+  lines.push(`## ${t('info.modelMath.block.conway')}`);
+  lines.push('For each set current ∈ {live, anti}:');
+  lines.push('  counts := empty map cellKey -> int');
+  lines.push('  for each alive cell (r,c) in current:');
+  lines.push('    for dr in {-1,0,1}, dc in {-1,0,1}, not (dr=0 and dc=0):');
+  lines.push('      neighbor (rr,cc):');
+  lines.push('        if wrap: rr=(rr+rows)%rows, cc=(cc+cols)%cols');
+  lines.push('        else: skip if rr<0 or rr>=rows or cc<0 or cc>=cols');
+  lines.push('      counts[key(rr,cc)]++');
+  lines.push('');
+  lines.push('  next := empty set');
+  lines.push('  for each (cellKey k, neighborCount n) in counts:');
+  lines.push('    alive := (k in current)');
+  lines.push('    if alive: keep iff n==2 or n==3');
+  lines.push('    if dead:  birth iff n==3');
+  lines.push('');
+  lines.push('After both sets update:');
+  lines.push('  annihilateOverlap(nextLive, nextAnti): remove any cellKey present in both');
+  lines.push('  (removed keys are recorded as annihilation events for medium impulses)');
+  lines.push('');
+
+  lines.push(`## ${t('info.modelMath.block.medium')}`);
+  lines.push('If mediumMode == off: medium state reset to 0 each frame.');
+  lines.push('Else, per Conway generation:');
+  lines.push('  fixedDtPerGeneration = 1/60');
+  lines.push('  substeps = clamp(round(mediumStepsPerGeneration), 1, 12)');
+  lines.push('  hStep = fixedDtPerGeneration / substeps');
+  lines.push('');
+  lines.push('  source map rebuild (downsample from Conway grid):');
+  lines.push('    source[p] -= 1 for each live cell mapped to wave pixel p');
+  lines.push('    source[p] += 1 for each anti cell mapped to wave pixel p (if antiparticlesEnabled)');
+  lines.push('    normalize by inv = 1 / ((cols/waveW) * (rows/waveH))');
+  lines.push('');
+  lines.push('  apply annihilation impulses (for each annihilation event key):');
+  lines.push('    map Conway (r,c) -> wave (x=floor((c/cols)*waveW), y=floor((r/rows)*waveH))');
+  lines.push(`    uCurr[x,y] += burst (${fmt(annihilationBurst, 4)})`);
+  lines.push(`    uPrev[x,y] -= burst (${fmt(annihilationBurst, 4)})`);
+  lines.push(`    4-neighbors get -neighborShare (${fmt(neighborShare, 6)}) similarly`);
+  lines.push('');
+
+  lines.push('  for sub=1..substeps do stepMediumOnce:');
+  lines.push('    (1) hopping drive:');
+  lines.push('      phase += 2π*hopHz*hStep');
+  lines.push('      impacts = floor(phase / 2π)');
+  lines.push('      phase = phase mod 2π');
+  lines.push('      for each wave cell i with source[i] != 0:');
+  lines.push('        kick = (0.16*hopStrength*impacts) * source[i]');
+  lines.push('        uCurr[i] += kick;  uPrev[i] -= kick');
+  lines.push('');
+  lines.push('    (2) ambient noise (if enabled): random blobs added to uCurr');
+  lines.push('');
+  lines.push('    (3) optional numerical limiter (if mediumAmplitudeLimiter>0):');
+  lines.push('        u := L*tanh(u/L) applied to uCurr and uPrev');
+  lines.push('');
+  lines.push('    (4) memory update (if memoryRate>0):');
+  lines.push('        m := (1-r)*m + r*uCurr');
+  lines.push('');
+  lines.push('    (5) laplacians (4-neighbor, wrap or edge-clamp):');
+  lines.push('        lap1 := L(uCurr)');
+  lines.push('        lap2 := L(lap1)');
+  lines.push('        L(u)[i] = left+right+up+down - 4*u[i]');
+  lines.push('');
+  lines.push('    (6) integrate (per wave cell i):');
+  lines.push('        nonlinearTerm = -nonlinearity * u^3');
+  lines.push('        memoryTerm    =  memoryCoupling * m');
+  lines.push('        rhs = c2*lap1 - kappa*lap2 + nonlinearTerm + memoryTerm');
+  lines.push('        uNext = (2*u - uPrev*(1-gFactor) + dt2*rhs) / (1+gFactor)');
+  lines.push('        (with dt2=hStep^2 and gFactor=gamma*hStep*0.5)');
+  lines.push('');
+
+  lines.push(`## ${t('info.modelMath.block.nucleation')}`);
+  lines.push('If mediumMode == nucleation:');
+  lines.push('  threshold = clamp(nucleationThreshold, 0.01, 2)');
+  lines.push('  blur twice with 3×3 box blur: driveA := blur(blur(uCurr))');
+  lines.push('  scan order is deterministic: start=scanOffset; scanOffset=(start+9973)%len');
+  lines.push('  for each wave cell i in scan order (skip visited/cooldown):');
+  lines.push('    if driveA[i] > threshold => positive nucleus candidate');
+  lines.push('    if driveA[i] < -threshold => negative candidate (requires antiparticlesEnabled)');
+  lines.push('    flood fill 4-neighbor component above threshold (or below -threshold)');
+  lines.push('    pick peak within component; set cooldownFrames=round(0.6*60)=36');
+  lines.push('    radiusCells = clamp(round(sqrt((|peak|-threshold)/threshold)*4), 0, 8)');
+  lines.push('    map peak wave cell -> Conway grid center (rows/cols)');
+  lines.push('    emit 2×2 block if radiusCells<=1 else disk of radiusCells');
+  lines.push('');
+
+  return lines.join('\n');
+})()}
+                         </pre>
+                       </div>
+                     </details>
+                   </div>
+                 </div>
+               </div>
+             </ScrollArea>
           </div>
         </div>,
         document.body

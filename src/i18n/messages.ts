@@ -82,6 +82,17 @@ export const MESSAGES: Record<Locale, Messages> = {
     'info.simNote.1':
       '“Hopping” is modeled as periodic local impacts (impulses) bound to sources, not as a global sine-wave flip.',
 
+    'info.modelMath.title': 'Current model (exact implementation)',
+    'info.modelMath.subtitle':
+      'Auto-generated description of the exact rules currently running (Conway + medium equations), including the substituted values from settings.',
+    'info.modelMath.open': 'Show formulas and parameters',
+    'info.modelMath.warning':
+      'Note: this is a technical description of the simulation (not a physical claim). The optional “numerical amplitude limiter” is a stability tool and can be turned off.',
+    'info.modelMath.block.params': 'Parameters (current)',
+    'info.modelMath.block.conway': 'Conway automaton (exact rules)',
+    'info.modelMath.block.medium': 'Medium (exact step)',
+    'info.modelMath.block.nucleation': 'Nucleation from medium (exact algorithm)',
+
     'helpButton.show': 'Show explanation',
     'helpButton.hide': 'Hide explanation',
 
@@ -279,6 +290,17 @@ export const MESSAGES: Record<Locale, Messages> = {
     'info.simNote.1':
       '„Hopkanie“ je modelované ako periodické lokálne dopady (impulzy) viazané na zdroje, nie ako globálny sínusový flip.',
 
+    'info.modelMath.title': 'Aktuálny model (presná implementácia)',
+    'info.modelMath.subtitle':
+      'Toto je automaticky generovaný výpis toho, čo práve beží v kóde (Conway pravidlá + rovnice média), vrátane dosadených hodnôt z nastavení.',
+    'info.modelMath.open': 'Zobraziť vzorce a parametre',
+    'info.modelMath.warning':
+      'Pozor: toto je presný technický popis simulácie (nie tvrdenie o fyzike). Voliteľný „numerický limit amplitúdy“ je stabilizačná pomôcka a dá sa vypnúť.',
+    'info.modelMath.block.params': 'Parametre (aktuálne)',
+    'info.modelMath.block.conway': 'Conway automat (presné pravidlá)',
+    'info.modelMath.block.medium': 'Médium (presný krok)',
+    'info.modelMath.block.nucleation': 'Nukleácia z média (presný algoritmus)',
+
     'helpButton.show': 'Zobraziť vysvetlenie',
     'helpButton.hide': 'Skryť vysvetlenie',
 
@@ -468,6 +490,17 @@ export const MESSAGES: Record<Locale, Messages> = {
     'info.simNote.1':
       '„Hopping“ wird als periodische lokale Einschläge (Impulse) an Quellen modelliert, nicht als globales Sinus‑Umschalten.',
 
+    'info.modelMath.title': 'Aktuelles Modell (exakte Implementierung)',
+    'info.modelMath.subtitle':
+      'Automatisch generierte Beschreibung der exakt laufenden Regeln (Conway + Mediumgleichungen) inklusive eingesetzter Einstellungswerte.',
+    'info.modelMath.open': 'Formeln und Parameter anzeigen',
+    'info.modelMath.warning':
+      'Hinweis: dies ist eine technische Beschreibung der Simulation (keine physikalische Behauptung). Der optionale „numerische Amplituden‑Limiter“ ist ein Stabilitätswerkzeug und kann deaktiviert werden.',
+    'info.modelMath.block.params': 'Parameter (aktuell)',
+    'info.modelMath.block.conway': 'Conway‑Automat (exakte Regeln)',
+    'info.modelMath.block.medium': 'Medium (exakter Schritt)',
+    'info.modelMath.block.nucleation': 'Keimbildung aus Medium (exakter Algorithmus)',
+
     'helpButton.show': 'Erklärung anzeigen',
     'helpButton.hide': 'Erklärung ausblenden',
 
@@ -649,6 +682,17 @@ export const MESSAGES: Record<Locale, Messages> = {
     'info.simNote.0': 'La « mer » colorée montre la polarité signée du champ d’ondes (composantes positive et négative).',
     'info.simNote.1':
       'Le « hopping » est modélisé par des impacts locaux périodiques (impulsions) liés aux sources, et non par un basculement sinusoïdal global.',
+
+    'info.modelMath.title': 'Modèle actuel (implémentation exacte)',
+    'info.modelMath.subtitle':
+      'Description auto‑générée des règles réellement exécutées (Conway + équations du milieu), avec les valeurs actuelles des paramètres.',
+    'info.modelMath.open': 'Afficher formules et paramètres',
+    'info.modelMath.warning':
+      'Note : ceci décrit la simulation (pas une affirmation physique). Le « limiteur numérique d’amplitude » est un outil de stabilité optionnel et peut être désactivé.',
+    'info.modelMath.block.params': 'Paramètres (actuels)',
+    'info.modelMath.block.conway': 'Automate de Conway (règles exactes)',
+    'info.modelMath.block.medium': 'Milieu (étape exacte)',
+    'info.modelMath.block.nucleation': 'Nucléation depuis le milieu (algorithme exact)',
 
     'helpButton.show': 'Afficher l’explication',
     'helpButton.hide': 'Masquer l’explication',
