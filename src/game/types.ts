@@ -29,6 +29,10 @@ export type GameSettings = {
   mediumMemoryCoupling: number;
   mediumNonlinearity: number;
 
+  // Numerical stability (not physical): soft amplitude limiter.
+  // 0 = off (closest to theory), otherwise controls compression scale.
+  mediumAmplitudeLimiter: number;
+
   // Annihilation -> energy injection
   annihilationBurst: number; // 0..1
 

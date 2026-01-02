@@ -7,8 +7,15 @@ export type MediumPreviewFrame = {
   w: number;
   h: number;
   data: Float32Array;
+
+  // Visualization scale (|u| units).
   uRef: number;
   uHi: number;
+
+  // Stats for the legend (|u| units).
+  absP95: number;
+  absP99: number;
+  absMax: number;
 };
 
 type Props = {
@@ -103,6 +110,9 @@ type WaveState = {
   // uHi is a more extreme reference (p99-ish) used for highlight handling.
   uRef: number;
   uHi: number;
+  absP95: number;
+  absP99: number;
+  absMax: number;
 
   // Demodulated / low-pass field used for visualization.
   // This makes fast oscillatory driving readable as a stable polarity map.
@@ -317,8 +327,11 @@ export default function LifeCanvas({
       imageData: ctx.createImageData(w, h),
       phase: 0,
       scanOffset: 0,
-      uRef: clamp(latestSettingsRef.current.nucleationThreshold * 2.5, 0.05, 2),
-      uHi: clamp(latestSettingsRef.current.nucleationThreshold * 2.5, 0.05, 2),
+      uRef: clamp(latestSettingsRef.current.nucleationThreshold * 2.5, 0.05, 50),
+      uHi: clamp(latestSettingsRef.current.nucleationThreshold * 2.5, 0.05, 50),
+      absP95: 0,
+      absP99: 0,
+      absMax: 0,
       uVis: new Float32Array(w * h),
     };
 
@@ -511,13 +524,18 @@ export default function LifeCanvas({
     onMediumAvgAmplitudeRef.current(count > 0 ? sum / count : 0);
 
     // Adaptive visualization scaling.
+    // Goal: keep the visible "energy" range readable without hard plateaus.
     {
       const sample: number[] = [];
       const step = 16;
-      for (let i = 0; i < state.uVis.length; i += step) {
-        const u = state.uVis[i];
+      let absMax = 0;
+
+      for (let i = 0; i < state.uCurr.length; i += step) {
+        const u = state.uCurr[i];
         const uSafe = Number.isFinite(u) ? u : 0;
-        sample.push(Math.abs(uSafe));
+        const abs = Math.abs(uSafe);
+        absMax = Math.max(absMax, abs);
+        sample.push(abs);
       }
 
       sample.sort((a, b) => a - b);
@@ -526,14 +544,20 @@ export default function LifeCanvas({
       const p95 = sample[idx95] ?? 0;
       const p99 = sample[idx99] ?? 0;
 
+      state.absP95 = p95;
+      state.absP99 = p99;
+      state.absMax = absMax;
+
       const threshold = clamp(currentSettings.nucleationThreshold, 0.01, 2);
       const minRef = threshold * 1.4;
 
-      const targetRef = clamp(Math.max(0.02, p95, minRef), 0.02, 2);
-      const targetHi = clamp(Math.max(targetRef * 1.15, p99), 0.02, 2);
+      // No fixed upper clamp here; we let the scale follow the medium.
+      const targetRef = clamp(Math.max(0.02, p95, minRef), 0.02, 1e6);
+      const targetHi = clamp(Math.max(targetRef * 1.35, p99), 0.02, 1e7);
 
-      const emaRef = 0.08;
-      const emaHi = 0.12;
+      // Near-immediate response (auto-exposure).
+      const emaRef = 0.75;
+      const emaHi = 0.85;
       state.uRef = state.uRef > 0 ? state.uRef + (targetRef - state.uRef) * emaRef : targetRef;
       state.uHi = state.uHi > 0 ? state.uHi + (targetHi - state.uHi) * emaHi : targetHi;
     }
@@ -551,13 +575,13 @@ export default function LifeCanvas({
       });
 
       const uRef = Math.max(1e-4, state.uRef);
-      const uHi = Math.max(uRef, state.uHi);
+      const uHi = Math.max(uRef * 1.05, state.uHi);
 
-      const hopHz = clamp(currentSettings.hopHz, 0, 20);
-      const visEma = hopHz > 0 ? 0.12 : 0.22;
+      // Keep the "visual" field nearly instantaneous.
+      const visEma = 1;
 
       const softness = 0.22;
-      const denom = Math.asinh(1 / softness);
+      const denom = Math.max(1e-6, Math.asinh(uHi / (uRef * softness)));
 
       const alphaMin = 18;
       const alphaMax = 215;
@@ -573,16 +597,16 @@ export default function LifeCanvas({
 
         const absU = Math.abs(uVis);
 
+        // Scale by current auto-exposure and compress smoothly (no hard plateau).
         const tRaw = Math.asinh(uVis / (uRef * softness)) / denom;
-        const t = clamp(tRaw, -1, 1);
+        const mag = 1 - Math.exp(-Math.abs(tRaw));
 
-        const mag = clamp(Math.abs(tRaw), 0, 1);
-        const over = uHi > uRef ? clamp((absU - uRef) / (uHi - uRef), 0, 1) : 0;
-
-        const mix = Math.pow(Math.abs(t), 0.9);
-        const target = t >= 0 ? colors.pos : colors.neg;
+        const mix = 0.22 + 0.78 * Math.pow(mag, 0.85);
+        const target = tRaw >= 0 ? colors.pos : colors.neg;
         let rgb = lerpRgb(colors.zero, target, mix);
 
+        // Highlight rare extremes beyond the current "high" scale.
+        const over = clamp((absU - uHi) / (uHi * 0.4), 0, 1);
         if (over > 0) {
           rgb = lerpRgb(rgb, { r: 255, g: 255, b: 255 }, over * 0.45);
         }
@@ -616,7 +640,16 @@ export default function LifeCanvas({
         }
       }
 
-      onMediumPreviewRef.current({ w: targetW, h: targetH, data: out, uRef: state.uRef, uHi: state.uHi });
+      onMediumPreviewRef.current({
+        w: targetW,
+        h: targetH,
+        data: out,
+        uRef: state.uRef,
+        uHi: state.uHi,
+        absP95: state.absP95,
+        absP99: state.absP99,
+        absMax: state.absMax,
+      });
     }
   }, []);
 
@@ -642,8 +675,11 @@ export default function LifeCanvas({
       state.visited.fill(0);
       state.phase = 0;
       state.scanOffset = 0;
-      state.uRef = clamp(currentSettings.nucleationThreshold * 2.5, 0.05, 2);
+      state.uRef = clamp(currentSettings.nucleationThreshold * 2.5, 0.05, 50);
       state.uHi = state.uRef;
+      state.absP95 = 0;
+      state.absP99 = 0;
+      state.absMax = 0;
       state.uVis.fill(0);
     };
 
@@ -759,12 +795,24 @@ export default function LifeCanvas({
 
       injectAmbientNoise(state, currentSettings, wrap);
 
+      // Numerical stability (optional): soft amplitude limiter.
+      // This is not a "physical" clamp; it is a numerical compression you can turn off.
+      const ampLimit = clamp(currentSettings.mediumAmplitudeLimiter, 0, 50);
+      if (ampLimit > 0) {
+        for (let i = 0; i < state.uCurr.length; i++) {
+          const u = state.uCurr[i];
+          const up = state.uPrev[i];
+          state.uCurr[i] = Number.isFinite(u) ? ampLimit * Math.tanh(u / ampLimit) : 0;
+          state.uPrev[i] = Number.isFinite(up) ? ampLimit * Math.tanh(up / ampLimit) : 0;
+        }
+      }
+
       if (memoryRate > 0) {
         const r = clamp(memoryRate, 0, 1);
         const inv = 1 - r;
         for (let i = 0; i < state.uCurr.length; i++) {
           const u = state.uCurr[i];
-          const uSafe = Number.isFinite(u) ? clamp(u, -2, 2) : 0;
+          const uSafe = Number.isFinite(u) ? u : 0;
           const mNext = inv * state.memory[i] + r * uSafe;
           state.memory[i] = Number.isFinite(mNext) ? mNext : 0;
         }
@@ -779,13 +827,14 @@ export default function LifeCanvas({
 
       for (let i = 0; i < state.uCurr.length; i++) {
         const u = state.uCurr[i];
-        const uSafe = Number.isFinite(u) ? clamp(u, -2, 2) : 0;
+        const uSafe = Number.isFinite(u) ? u : 0;
 
         const nonlinearTerm = -nonlinearity * uSafe * uSafe * uSafe;
         const memoryTerm = memoryCoupling * state.memory[i];
 
         const rhs = c2 * state.lap1[i] - kappa * state.lap2[i] + nonlinearTerm + memoryTerm;
-        const next = (2 * uSafe - (Number.isFinite(state.uPrev[i]) ? state.uPrev[i] : 0) * (1 - gFactor) + dt2 * rhs) / denom;
+        const uPrev = Number.isFinite(state.uPrev[i]) ? state.uPrev[i] : 0;
+        const next = (2 * uSafe - uPrev * (1 - gFactor) + dt2 * rhs) / denom;
         state.uNext[i] = Number.isFinite(next) ? next : 0;
       }
 

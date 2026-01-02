@@ -183,6 +183,10 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
     () => Math.round(game.settings.mediumNonlinearity * 10) / 10,
     [game.settings.mediumNonlinearity]
   );
+  const mediumAmplitudeLimiter = useMemo(
+    () => Math.round(game.settings.mediumAmplitudeLimiter * 10) / 10,
+    [game.settings.mediumAmplitudeLimiter]
+  );
   const hopHz = useMemo(() => Math.round(game.settings.hopHz * 10) / 10, [game.settings.hopHz]);
   const hopStrengthPercent = useMemo(
     () => Math.round(game.settings.hopStrength * 100),
@@ -739,34 +743,56 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                    </div>
                  </div>
 
+                   <div className="mt-3">
+                     <HelpRow
+                       label={
+                          <div className="text-xs font-medium opacity-90">
+                            {t('medium.nonlinearity.label', { value: mediumNonlinearity })}
+                          </div>
+                        }
+                         help={
+                           <>
+                             {t('medium.nonlinearity.help')}
+                             <div className="mt-1 opacity-80">{dangerZoneNote}</div>
+                           </>
+                         }
+ 
+                     />
+                    <div className="mt-2">
+                       <Slider
+                         value={[mediumNonlinearity]}
+                         min={0}
+                         max={60}
+                         step={0.5}
+                         dangerRanges={mediumDangerZones.nonlinearity}
+                         onValueChange={(v) => game.setMediumNonlinearity(v[0] ?? mediumNonlinearity)}
+                       />
+ 
+                    </div>
+                  </div>
+
                   <div className="mt-3">
                     <HelpRow
                       label={
-                         <div className="text-xs font-medium opacity-90">
-                           {t('medium.nonlinearity.label', { value: mediumNonlinearity })}
-                         </div>
-                       }
-                        help={
-                          <>
-                            {t('medium.nonlinearity.help')}
-                            <div className="mt-1 opacity-80">{dangerZoneNote}</div>
-                          </>
-                        }
-
+                        <div className="text-xs font-medium opacity-90">
+                          {t('medium.amplitudeLimiter.label', {
+                            value: mediumAmplitudeLimiter > 0 ? mediumAmplitudeLimiter : t('common.off'),
+                          })}
+                        </div>
+                      }
+                      help={t('medium.amplitudeLimiter.help')}
                     />
-                   <div className="mt-2">
+                    <div className="mt-2">
                       <Slider
-                        value={[mediumNonlinearity]}
+                        value={[mediumAmplitudeLimiter]}
                         min={0}
-                        max={60}
+                        max={50}
                         step={0.5}
-                        dangerRanges={mediumDangerZones.nonlinearity}
-                        onValueChange={(v) => game.setMediumNonlinearity(v[0] ?? mediumNonlinearity)}
+                        onValueChange={(v) => game.setMediumAmplitudeLimiter(v[0] ?? mediumAmplitudeLimiter)}
                       />
-
-                   </div>
-                 </div>
-               </div>
+                    </div>
+                  </div>
+                </div>
              </Card>
           </div>
 

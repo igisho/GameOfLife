@@ -42,6 +42,14 @@ function formatSigned(x: number) {
   return `${sign}${s}`;
 }
 
+function formatMagnitude(x: number) {
+  const v = Number.isFinite(x) ? Math.abs(x) : 0;
+  if (v < 0.001) return '0';
+  if (v >= 1000) return v.toFixed(0);
+  if (v >= 10) return v.toFixed(2).replace(/(\.\d*?)0+$/, '$1');
+  return v.toFixed(3).replace(/(\.\d*?)0+$/, '$1');
+}
+
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
@@ -275,6 +283,19 @@ export default function App() {
                   className="h-full w-full overflow-hidden rounded-xl border border-[var(--panel-border)]"
                 />
               </div>
+
+              {mediumPreview ? (
+                <div className="mt-3 rounded-xl border border-[var(--panel-border)] bg-[var(--field)] p-3 text-xs">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('medium.legend.title')}</div>
+                  <div className="mt-1 tabular-nums opacity-90">
+                    {t('medium.legend.body', {
+                      p95: formatMagnitude(mediumPreview.absP95),
+                      p99: formatMagnitude(mediumPreview.absP99),
+                      max: formatMagnitude(mediumPreview.absMax),
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>,

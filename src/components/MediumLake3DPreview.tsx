@@ -263,7 +263,9 @@ void main() {
   float diffuse = saturate(abs(dot(n, uLight)));
 
   float zRef = max(0.03, uURef);
-  float mag = saturate(abs(vU) / (zRef * 1.3));
+  // Smooth compression (avoid hard plateaus at high |u|).
+  float mag = 1.0 - exp(-abs(vU) / (zRef * 1.3));
+  mag = saturate(mag);
   float mixT = 0.22 + 0.78 * pow(mag, 0.85);
 
   vec3 base = vU >= 0.0 ? uPosColor : uNegColor;
@@ -647,7 +649,7 @@ export default function MediumLake3DPreview({ frame, enabled, className, rendere
 
         const uAvg = (u00 + u10 + u01 + u11) * 0.25;
         const abs = Math.abs(uAvg);
-        const mag = clamp(abs / (zRef * 1.3), 0, 1);
+        const mag = clamp(1 - Math.exp(-abs / (zRef * 1.3)), 0, 1);
 
         const base = uAvg >= 0 ? colors.pos : colors.neg;
         const tinted = lerpRgb(colors.zero, base, 0.22 + 0.78 * Math.pow(mag, 0.85));

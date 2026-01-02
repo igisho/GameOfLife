@@ -9,6 +9,7 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     'common.choose': 'Choose',
     'common.close': 'Close',
+    'common.off': 'Off',
 
     'language.label': 'Language',
     'language.en': 'English',
@@ -37,6 +38,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'app.medium': 'Medium',
     'app.mediumAvgAmplitude': 'Medium average amplitude',
     'app.cellCounts': 'Cell counts',
+
+    'medium.legend.title': 'Excitation scale (|u|)',
+    'medium.legend.body': 'p95: {{p95}} · p99: {{p99}} · max: {{max}}',
     'app.liveCellsTitle': 'Live cells (matter)',
     'app.antiCellsTitle': 'Live anti-cells (antimatter)',
 
@@ -143,6 +147,10 @@ export const MESSAGES: Record<Locale, Messages> = {
     'medium.nonlinearity.help':
       'Nonlinear feedback that changes behavior at larger amplitudes. Higher = sharper phenomena and a different propagation character; too high may damp large waves.',
 
+    'medium.amplitudeLimiter.label': 'Numerical amplitude limiter: {{value}}',
+    'medium.amplitudeLimiter.help':
+      'Optional numerical stability tool (soft compression of the field amplitude). Set to Off for the most theory-faithful unbounded medium; raise it only if the simulation becomes unstable.',
+
     'fluctuations.title': 'Medium fluctuations',
     'fluctuations.ambient.label': 'Ambient fluctuations',
     'fluctuations.ambient.help':
@@ -201,6 +209,7 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     'common.choose': 'Vyber',
     'common.close': 'Zavrieť',
+    'common.off': 'Vypnuté',
 
     'language.label': 'Jazyk',
     'language.en': 'English',
@@ -229,6 +238,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'app.medium': 'Médium',
     'app.mediumAvgAmplitude': 'Priemerná amplitúda média',
     'app.cellCounts': 'Počty buniek',
+
+    'medium.legend.title': 'Mierka excitácie (|u|)',
+    'medium.legend.body': 'p95: {{p95}} · p99: {{p99}} · max: {{max}}',
     'app.liveCellsTitle': 'Živé bunky (hmota)',
     'app.antiCellsTitle': 'Živé antibunky (antihmota)',
 
@@ -330,6 +342,10 @@ export const MESSAGES: Record<Locale, Messages> = {
     'medium.nonlinearity.label': 'Nelinearita média: {{value}}',
     'medium.nonlinearity.help':
       'Nelineárna spätná väzba, ktorá mení správanie pri väčších amplitúdach. Vyššie = ostrejšie javy a iný charakter šírenia; príliš vysoko môže tlmiť veľké vlny.',
+
+    'medium.amplitudeLimiter.label': 'Numerický limit amplitúdy: {{value}}',
+    'medium.amplitudeLimiter.help':
+      'Voliteľná numerická stabilizácia (mäkká kompresia amplitúdy poľa). Nastav na Vypnuté pre najvernejší (neobmedzený) režim podľa teórie; zvyšuj len ak sa simulácia začne rozpadávať.',
 
     'fluctuations.title': 'Fluktuácie média',
     'fluctuations.ambient.label': 'Ambientné fluktuácie',

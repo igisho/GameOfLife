@@ -90,6 +90,7 @@ export type UseGameOfLifeResult = {
   setMediumMemoryRatePercent: (percent: number) => void;
   setMediumMemoryCoupling: (value: number) => void;
   setMediumNonlinearity: (value: number) => void;
+  setMediumAmplitudeLimiter: (value: number) => void;
   setAnnihilationBurstPercent: (percent: number) => void;
   setLakeNoiseIntensityPercent: (noisePercent: number) => void;
   setLakeBlobSize: (blobSize: number) => void;
@@ -119,6 +120,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
     mediumMemoryRate: 0.04,
     mediumMemoryCoupling: 10,
     mediumNonlinearity: 8,
+    mediumAmplitudeLimiter: 0,
 
     annihilationBurst: 0.25,
 
@@ -463,6 +465,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
       mediumMemoryRate: clamp(Number(patch.mediumMemoryRate ?? prev.mediumMemoryRate), 0, 0.3),
       mediumMemoryCoupling: clamp(Number(patch.mediumMemoryCoupling ?? prev.mediumMemoryCoupling), 0, 60),
       mediumNonlinearity: clamp(Number(patch.mediumNonlinearity ?? prev.mediumNonlinearity), 0, 60),
+      mediumAmplitudeLimiter: clamp(Number(patch.mediumAmplitudeLimiter ?? prev.mediumAmplitudeLimiter), 0, 50),
       annihilationBurst: clamp(Number(patch.annihilationBurst ?? prev.annihilationBurst), 0, 1),
 
       lakeNoiseIntensity: clamp(Number(patch.lakeNoiseIntensity ?? prev.lakeNoiseIntensity), 0, 1),
@@ -568,10 +571,12 @@ export function useGameOfLife(): UseGameOfLifeResult {
 
       startWithPattern,
 
-      setMediumMemoryRatePercent: (percent) => updateSettings({ mediumMemoryRate: clamp(percent / 100, 0, 0.3) }),
-      setMediumMemoryCoupling: (value) => updateSettings({ mediumMemoryCoupling: value }),
-      setMediumNonlinearity: (value) => updateSettings({ mediumNonlinearity: value }),
-      setAnnihilationBurstPercent: (percent) => updateSettings({ annihilationBurst: clamp(percent / 100, 0, 1) }),
+       setMediumMemoryRatePercent: (percent) => updateSettings({ mediumMemoryRate: clamp(percent / 100, 0, 0.3) }),
+       setMediumMemoryCoupling: (value) => updateSettings({ mediumMemoryCoupling: value }),
+       setMediumNonlinearity: (value) => updateSettings({ mediumNonlinearity: value }),
+       setMediumAmplitudeLimiter: (value) => updateSettings({ mediumAmplitudeLimiter: value }),
+       setAnnihilationBurstPercent: (percent) => updateSettings({ annihilationBurst: clamp(percent / 100, 0, 1) }),
+
     }),
     [
       clearAll,
