@@ -2,10 +2,8 @@ image: node:20-alpine
 
 variables:
   PROJECT_NAME: "conoway"
-  EXT_PORT: "1445"
-  INT_PORT: "8080"
-  WEB: "https://conway.altky.sk"
-  IMAGE: "https://conway.altky.sk/favicon.ico"
+  # Deployment-specific values are expected from GitLab CI/CD Variables:
+  # EXT_PORT, INT_PORT, WEB, HOST_OS, HOST_HOSTNAME
 
 stages:
   - build
@@ -47,12 +45,31 @@ deploy:
   script:
     - echo "Installing Docker client..."
     - apk add --no-cache docker-cli
+
+    # Fail fast (useful for mirrored/public repos)
+    - : "${EXT_PORT:?Set EXT_PORT in GitLab CI/CD Variables}"
+    - : "${INT_PORT:?Set INT_PORT in GitLab CI/CD Variables}"
+    - : "${WEB:?Set WEB in GitLab CI/CD Variables}"
+    - : "${HOST_OS:?Set HOST_OS in GitLab CI/CD Variables}"
+    - : "${HOST_HOSTNAME:?Set HOST_HOSTNAME in GitLab CI/CD Variables}"
+
     - echo "Deploying to Docker"
     - docker info
     - docker stop $PROJECT_NAME || true
     - docker rm $PROJECT_NAME || true
     - docker build -t $PROJECT_NAME:$CI_COMMIT_SHORT_SHA .
-    - docker run -d --name $PROJECT_NAME --net='bridge' -e TZ="Europe/Budapest" -e PORT=$INT_PORT -e HOST_OS="Unraid" -e HOST_HOSTNAME="unraid" -e HOST_CONTAINERNAME=$PROJECT_NAME -l net.unraid.docker.managed=dockerman -l net.unraid.docker.webui="$WEB" -l net.unraid.docker.icon="$IMAGE" -p $EXT_PORT:$INT_PORT/tcp $PROJECT_NAME:$CI_COMMIT_SHORT_SHA
+    - |
+      docker run -d --name "$PROJECT_NAME" --net='bridge' \
+        -e TZ="Europe/Budapest" \
+        -e PORT="$INT_PORT" \
+        -e HOST_OS="$HOST_OS" \
+        -e HOST_HOSTNAME="$HOST_HOSTNAME" \
+        -e HOST_CONTAINERNAME="$PROJECT_NAME" \
+        -l net.unraid.docker.managed=dockerman \
+        -l net.unraid.docker.webui="$WEB" \
+        -l net.unraid.docker.icon="${WEB%/}/favicon.ico" \
+        -p "$EXT_PORT":"$INT_PORT"/tcp \
+        "$PROJECT_NAME":"$CI_COMMIT_SHORT_SHA"
   allow_failure: false
   when: manual
   only:
