@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/I18nProvider';
 import { createPortal } from 'react-dom';
 import Button from './ui/Button';
+import { cn } from '../lib/cn';
 import Checkbox from './ui/Checkbox';
 import ScrollArea from './ui/ScrollArea';
 import Slider from './ui/Slider';
@@ -75,6 +76,40 @@ function clamp(x: number, a: number, b: number) {
   return Math.max(a, Math.min(b, x));
 }
 
+function patternSize(pattern: string[]) {
+  const height = pattern.length;
+  let width = 0;
+  for (const row of pattern) width = Math.max(width, row.length);
+  return { width, height };
+}
+
+function PatternPreview({ pattern }: { pattern: string[] }) {
+  const { width, height } = patternSize(pattern);
+
+  return (
+    <div className="grid place-items-center" aria-hidden="true">
+      <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.max(1, width)}, minmax(0, 1fr))` }}>
+        {Array.from({ length: width * height }, (_, idx) => {
+          const r = Math.floor(idx / Math.max(1, width));
+          const c = idx % Math.max(1, width);
+          const row = pattern[r] ?? '';
+          const on = row[c] === '#';
+          return (
+            <div
+              key={`${r}:${c}`}
+              className={cn(
+                'h-3 w-3 rounded-[4px] border sm:h-4 sm:w-4',
+                'border-[color-mix(in srgb, var(--grid) 55%, transparent)]',
+                on ? 'bg-[var(--cell)]' : 'bg-[color-mix(in srgb, var(--canvas) 70%, transparent)]'
+              )}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function Card({ children }: { children: ReactNode }) {
   return <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">{children}</div>;
 }
@@ -123,14 +158,22 @@ function LabeledSlider({
 
 
 
+type QuickStartOption = {
+  id: string;
+  title: string;
+  pattern: string[];
+};
+
 type Props = {
   game: UseGameOfLifeResult;
   theme: ThemeName;
   setTheme: (t: ThemeName) => void;
   onHide: () => void;
+  quickStartOptions: QuickStartOption[];
+  onQuickStart: (id: string) => void;
 };
 
-export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
+export default function Sidebar({ game, theme, setTheme, onHide, quickStartOptions, onQuickStart }: Props) {
   const { t } = useI18n();
   const [infoOpen, setInfoOpen] = useState(false);
 
@@ -688,6 +731,31 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
             </div>
           </div>
 
+          <div className="space-y-2">
+            <SectionTitle>{t('sidebar.quickStart.title')}</SectionTitle>
+            <div className="mx-auto grid w-full max-w-[360px] grid-cols-3 gap-2">
+              {quickStartOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => onQuickStart(opt.id)}
+                  className={cn(
+                    'group relative grid aspect-square w-full place-items-center overflow-hidden rounded-2xl',
+                    'cursor-pointer border border-[var(--panel-border)]',
+                    'bg-[var(--field)] text-[var(--text)] shadow-sm transition',
+                    'hover:-translate-y-0.5 hover:border-[var(--primary)]',
+                    'active:translate-y-0 active:scale-[0.98]',
+                    'focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2 focus:ring-offset-[var(--panel)]'
+                  )}
+                  aria-label={t('start.ariaStartPattern', { name: opt.title })}
+                >
+                  <div className="p-3">
+                    <PatternPreview pattern={opt.pattern} />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="space-y-2">
             <SectionTitle>{t('simulation.title')}</SectionTitle>

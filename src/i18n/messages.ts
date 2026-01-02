@@ -46,6 +46,7 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     'sidebar.title': 'Spacetime Medium',
     'sidebar.subtitle': 'Game of Life + excitations (matter/antimatter)',
+    'sidebar.quickStart.title': 'Quick start',
 
     'sidebar.info.tooltip': 'Ontological foundation',
     'sidebar.info.button': 'Info',
@@ -257,6 +258,7 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     'sidebar.title': 'Časopriestorové médium',
     'sidebar.subtitle': 'Hra života + excitácie (hmota/antihmota)',
+    'sidebar.quickStart.title': 'Rýchle spustenie',
 
     'sidebar.info.tooltip': 'Ontologický základ',
     'sidebar.info.button': 'Info',
@@ -454,6 +456,7 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     'sidebar.title': 'Raumzeit‑Medium',
     'sidebar.subtitle': 'Game of Life + Anregungen (Materie/Antimaterie)',
+    'sidebar.quickStart.title': 'Schnellstart',
 
     'sidebar.info.tooltip': 'Ontologische Grundlage',
     'sidebar.info.button': 'Info',
@@ -647,6 +650,7 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     'sidebar.title': 'Milieu espace‑temps',
     'sidebar.subtitle': 'Jeu de la vie + excitations (matière/antimatière)',
+    'sidebar.quickStart.title': 'Démarrage rapide',
 
     'sidebar.info.tooltip': 'Fondement ontologique',
     'sidebar.info.button': 'Info',

@@ -236,6 +236,17 @@ export default function App() {
     [centerCanvasScroll, game, startOptions]
   );
 
+  const onQuickStartFromSidebar = useCallback(
+    (id: string) => {
+      const opt = startOptions.find((o) => o.id === id);
+      if (!opt) return;
+
+      game.startWithPattern(opt.pattern);
+      window.requestAnimationFrame(() => centerCanvasScroll());
+    },
+    [centerCanvasScroll, game, startOptions]
+  );
+
   const onAdvancedStart = useCallback(() => {
     setStartOverlayOpen(false);
     setSidebarOpen(true);
@@ -354,12 +365,14 @@ export default function App() {
                sidebarOpen ? 'translate-x-0' : '-translate-x-full'
              )}
            >
-             <Sidebar
-               game={game}
-               theme={theme}
-               setTheme={setTheme}
-               onHide={() => setSidebarOpen(false)}
-             />
+              <Sidebar
+                game={game}
+                theme={theme}
+                setTheme={setTheme}
+                onHide={() => setSidebarOpen(false)}
+                quickStartOptions={startOptions}
+                onQuickStart={onQuickStartFromSidebar}
+              />
            </div>
          </div>
  
