@@ -47,11 +47,11 @@ deploy:
     - apk add --no-cache docker-cli
 
     # Fail fast (useful for mirrored/public repos)
-    - : "${EXT_PORT:?Set EXT_PORT in GitLab CI/CD Variables}"
-    - : "${INT_PORT:?Set INT_PORT in GitLab CI/CD Variables}"
-    - : "${WEB:?Set WEB in GitLab CI/CD Variables}"
-    - : "${HOST_OS:?Set HOST_OS in GitLab CI/CD Variables}"
-    - : "${HOST_HOSTNAME:?Set HOST_HOSTNAME in GitLab CI/CD Variables}"
+    - ': "${EXT_PORT:?Set EXT_PORT in GitLab CI/CD Variables}"'
+    - ': "${INT_PORT:?Set INT_PORT in GitLab CI/CD Variables}"'
+    - ': "${WEB:?Set WEB in GitLab CI/CD Variables}"'
+    - ': "${HOST_OS:?Set HOST_OS in GitLab CI/CD Variables}"'
+    - ': "${HOST_HOSTNAME:?Set HOST_HOSTNAME in GitLab CI/CD Variables}"'
 
     - echo "Deploying to Docker"
     - docker info
