@@ -71,6 +71,10 @@ function HelpRow({
 
 const CONTROL_ICON = 'h-5 w-5';
 
+function clamp(x: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, x));
+}
+
 function Card({ children }: { children: ReactNode }) {
   return <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3">{children}</div>;
 }
@@ -83,14 +87,16 @@ function LabeledSlider({
   max,
   step,
   onChange,
+  dangerRanges,
 }: {
   label: ReactNode;
-  help?: string;
+  help?: ReactNode;
   value: number;
   min: number;
   max: number;
   step: number;
   onChange: (value: number) => void;
+  dangerRanges?: Array<{ from: number; to: number }>;
 }) {
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -102,7 +108,14 @@ function LabeledSlider({
       </div>
       {help ? <HelpPanel open={helpOpen}>{help}</HelpPanel> : null}
       <div className="mt-2">
-        <Slider value={[value]} min={min} max={max} step={step} onValueChange={(v) => onChange(v[0] ?? value)} />
+        <Slider
+          value={[value]}
+          min={min}
+          max={max}
+          step={step}
+          dangerRanges={dangerRanges}
+          onValueChange={(v) => onChange(v[0] ?? value)}
+        />
       </div>
     </Card>
   );
@@ -179,6 +192,75 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
     () => Math.round(game.settings.nucleationThreshold * 100) / 100,
     [game.settings.nucleationThreshold]
   );
+
+  const dangerZoneNote = useMemo(() => t('slider.dangerZoneNote'), [t]);
+
+  const mediumDangerZones = useMemo(() => {
+    const threshold = clamp(nucleationThreshold, 0.05, 1);
+
+    const hopHzRaw = clamp(game.settings.hopHz, 0, 20);
+    const hopStrengthRaw = clamp(game.settings.hopStrength, 0, 3);
+    const drive = hopHzRaw * hopStrengthRaw;
+
+    // Heuristic: higher drive becomes less plausible sooner if the nucleation threshold is low.
+    const driveDanger = 30 * clamp(threshold / 0.25, 0.4, 2);
+
+    const hopHzDangerFrom =
+      hopStrengthRaw > 1e-3 ? clamp(driveDanger / Math.max(0.05, hopStrengthRaw), 0, 20) : Number.POSITIVE_INFINITY;
+    const hopStrengthDangerFromPercent =
+      hopHzRaw > 1e-3 ? clamp((driveDanger / Math.max(0.1, hopHzRaw)) * 100, 0, 300) : Number.POSITIVE_INFINITY;
+
+    const burst = clamp(game.settings.annihilationBurst, 0, 1);
+    const density = clamp(game.settings.density, 0, 1);
+    const burstDangerFromPercent = clamp(
+      70 * clamp(threshold / 0.25, 0.5, 2) * clamp(1 - 0.6 * density, 0.35, 1),
+      0,
+      100
+    );
+
+    const memoryRate = clamp(game.settings.mediumMemoryRate, 0, 0.3);
+    const memoryCouplingRaw = clamp(game.settings.mediumMemoryCoupling, 0, 60);
+
+    // Heuristic: memory effects depend on (rate * coupling).
+    const memoryEffectiveDanger = 4;
+    const couplingDangerFrom =
+      memoryRate > 1e-3 ? clamp(memoryEffectiveDanger / memoryRate, 0, 60) : Number.POSITIVE_INFINITY;
+    const memoryRateDangerFromPercent =
+      memoryCouplingRaw > 0.5 ? clamp((memoryEffectiveDanger / memoryCouplingRaw) * 100, 0, 30) : Number.POSITIVE_INFINITY;
+
+    const noise = clamp(game.settings.lakeNoiseIntensity, 0, 1);
+    const noiseDangerFromPercent = clamp(50 * (threshold / 0.25), 10, 100);
+
+    // Heuristic: strong excitation makes a very low threshold physically implausible (constant nucleation).
+    const minThresholdSafe = clamp(0.1 + 0.0025 * drive + 0.1 * burst + 0.05 * noise, 0.05, 1);
+
+    const excitation = drive + burst * (0.5 + 3 * density) * 12 + noise * 10;
+    const nonlinearityDangerFrom = clamp(55 - excitation * 0.7, 10, 60);
+
+    const toRanges = (from: number, min: number, max: number) => {
+      if (!Number.isFinite(from) || from >= max) return [] as Array<{ from: number; to: number }>;
+      return [{ from: clamp(from, min, max), to: max }];
+    };
+
+    const between = (from: number, to: number, min: number, max: number) => {
+      if (!Number.isFinite(from) || !Number.isFinite(to)) return [] as Array<{ from: number; to: number }>;
+      const a = clamp(from, min, max);
+      const b = clamp(to, min, max);
+      if (Math.abs(a - b) < 1e-6) return [] as Array<{ from: number; to: number }>;
+      return [{ from: a, to: b }];
+    };
+
+    return {
+      hopHz: toRanges(hopHzDangerFrom, 0, 20),
+      hopStrength: toRanges(hopStrengthDangerFromPercent, 0, 300),
+      annihilationBurst: toRanges(burstDangerFromPercent, 0, 100),
+      memoryRate: toRanges(memoryRateDangerFromPercent, 0, 30),
+      memoryCoupling: toRanges(couplingDangerFrom, 0, 60),
+      nonlinearity: toRanges(nonlinearityDangerFrom, 0, 60),
+      lakeNoise: toRanges(noiseDangerFromPercent, 0, 100),
+      nucleationThreshold: between(0.05, minThresholdSafe, 0.05, 1),
+    };
+  }, [game.settings, nucleationThreshold]);
   const mediumStepsPerGeneration = useMemo(
     () => Math.round(game.settings.mediumStepsPerGeneration),
     [game.settings.mediumStepsPerGeneration]
@@ -460,17 +542,25 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                   label={
                      <div className="text-xs font-medium opacity-90">{t('medium.hopHz.label', { value: hopHz })}</div>
                    }
-                   help={t('medium.hopHz.help')}
+                    help={
+                      <>
+                        {t('medium.hopHz.help')}
+                        <div className="mt-1 opacity-80">{dangerZoneNote}</div>
+                      </>
+                    }
+
                 />
-                <div className="mt-2">
-                  <Slider
-                    value={[hopHz]}
-                    min={0}
-                    max={20}
-                    step={0.1}
-                    onValueChange={(v) => game.setHopHz(v[0] ?? hopHz)}
-                  />
-                </div>
+                 <div className="mt-2">
+                   <Slider
+                     value={[hopHz]}
+                     min={0}
+                     max={20}
+                     step={0.1}
+                     dangerRanges={mediumDangerZones.hopHz}
+                     onValueChange={(v) => game.setHopHz(v[0] ?? hopHz)}
+                   />
+                 </div>
+
               </div>
 
                <div className="mt-3">
@@ -480,16 +570,24 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                        {t('medium.hopStrength.label', { value: hopStrengthPercent })}
                      </div>
                    }
-                   help={t('medium.hopStrength.help')}
+                    help={
+                      <>
+                        {t('medium.hopStrength.help')}
+                        <div className="mt-1 opacity-80">{dangerZoneNote}</div>
+                      </>
+                    }
+
                 />
                 <div className="mt-2">
-                  <Slider
-                    value={[hopStrengthPercent]}
-                    min={0}
-                    max={300}
-                    step={1}
-                    onValueChange={(v) => game.setHopStrength((v[0] ?? hopStrengthPercent) / 100)}
-                  />
+                   <Slider
+                     value={[hopStrengthPercent]}
+                     min={0}
+                     max={300}
+                     step={1}
+                     dangerRanges={mediumDangerZones.hopStrength}
+                     onValueChange={(v) => game.setHopStrength((v[0] ?? hopStrengthPercent) / 100)}
+                   />
+
                 </div>
                </div>
 
@@ -517,16 +615,24 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                            {t('medium.nucleationThreshold.label', { value: nucleationThreshold })}
                          </div>
                        }
-                       help={t('medium.nucleationThreshold.help')}
+                        help={
+                          <>
+                            {t('medium.nucleationThreshold.help')}
+                            <div className="mt-1 opacity-80">{dangerZoneNote}</div>
+                          </>
+                        }
+
                   />
                   <div className="mt-2">
-                    <Slider
-                      value={[nucleationThreshold]}
-                      min={0.05}
-                      max={1}
-                      step={0.01}
-                      onValueChange={(v) => game.setNucleationThreshold(v[0] ?? nucleationThreshold)}
-                    />
+                     <Slider
+                       value={[nucleationThreshold]}
+                       min={0.05}
+                       max={1}
+                       step={0.01}
+                       dangerRanges={mediumDangerZones.nucleationThreshold}
+                       onValueChange={(v) => game.setNucleationThreshold(v[0] ?? nucleationThreshold)}
+                     />
+
                   </div>
                 </div>
               ) : null}
@@ -556,16 +662,24 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                            {t('medium.annihilationEnergy.label', { value: annihilationBurstPercent })}
                          </div>
                        }
-                       help={t('medium.annihilationEnergy.help')}
+                        help={
+                          <>
+                            {t('medium.annihilationEnergy.help')}
+                            <div className="mt-1 opacity-80">{dangerZoneNote}</div>
+                          </>
+                        }
+
                     />
                    <div className="mt-2">
-                     <Slider
-                       value={[annihilationBurstPercent]}
-                       min={0}
-                       max={100}
-                       step={1}
-                       onValueChange={(v) => game.setAnnihilationBurstPercent(v[0] ?? annihilationBurstPercent)}
-                     />
+                      <Slider
+                        value={[annihilationBurstPercent]}
+                        min={0}
+                        max={100}
+                        step={1}
+                        dangerRanges={mediumDangerZones.annihilationBurst}
+                        onValueChange={(v) => game.setAnnihilationBurstPercent(v[0] ?? annihilationBurstPercent)}
+                      />
+
                    </div>
                  </div>
 
@@ -576,16 +690,24 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                            {t('medium.memoryRate.label', { value: mediumMemoryRatePercent })}
                          </div>
                        }
-                       help={t('medium.memoryRate.help')}
+                        help={
+                          <>
+                            {t('medium.memoryRate.help')}
+                            <div className="mt-1 opacity-80">{dangerZoneNote}</div>
+                          </>
+                        }
+
                     />
                    <div className="mt-2">
-                     <Slider
-                       value={[mediumMemoryRatePercent]}
-                       min={0}
-                       max={30}
-                       step={1}
-                       onValueChange={(v) => game.setMediumMemoryRatePercent(v[0] ?? mediumMemoryRatePercent)}
-                     />
+                      <Slider
+                        value={[mediumMemoryRatePercent]}
+                        min={0}
+                        max={30}
+                        step={1}
+                        dangerRanges={mediumDangerZones.memoryRate}
+                        onValueChange={(v) => game.setMediumMemoryRatePercent(v[0] ?? mediumMemoryRatePercent)}
+                      />
+
                    </div>
                  </div>
 
@@ -596,16 +718,24 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                            {t('medium.memoryCoupling.label', { value: mediumMemoryCoupling })}
                          </div>
                        }
-                       help={t('medium.memoryCoupling.help')}
+                        help={
+                          <>
+                            {t('medium.memoryCoupling.help')}
+                            <div className="mt-1 opacity-80">{dangerZoneNote}</div>
+                          </>
+                        }
+
                     />
                    <div className="mt-2">
-                     <Slider
-                       value={[mediumMemoryCoupling]}
-                       min={0}
-                       max={60}
-                       step={0.5}
-                       onValueChange={(v) => game.setMediumMemoryCoupling(v[0] ?? mediumMemoryCoupling)}
-                     />
+                      <Slider
+                        value={[mediumMemoryCoupling]}
+                        min={0}
+                        max={60}
+                        step={0.5}
+                        dangerRanges={mediumDangerZones.memoryCoupling}
+                        onValueChange={(v) => game.setMediumMemoryCoupling(v[0] ?? mediumMemoryCoupling)}
+                      />
+
                    </div>
                  </div>
 
@@ -616,16 +746,24 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                            {t('medium.nonlinearity.label', { value: mediumNonlinearity })}
                          </div>
                        }
-                       help={t('medium.nonlinearity.help')}
+                        help={
+                          <>
+                            {t('medium.nonlinearity.help')}
+                            <div className="mt-1 opacity-80">{dangerZoneNote}</div>
+                          </>
+                        }
+
                     />
                    <div className="mt-2">
-                     <Slider
-                       value={[mediumNonlinearity]}
-                       min={0}
-                       max={60}
-                       step={0.5}
-                       onValueChange={(v) => game.setMediumNonlinearity(v[0] ?? mediumNonlinearity)}
-                     />
+                      <Slider
+                        value={[mediumNonlinearity]}
+                        min={0}
+                        max={60}
+                        step={0.5}
+                        dangerRanges={mediumDangerZones.nonlinearity}
+                        onValueChange={(v) => game.setMediumNonlinearity(v[0] ?? mediumNonlinearity)}
+                      />
+
                    </div>
                  </div>
                </div>
@@ -654,16 +792,24 @@ export default function Sidebar({ game, theme, setTheme, onHide }: Props) {
                        {t('fluctuations.intensity.label', { value: lakeNoisePercent })}
                      </div>
                    }
-                   help={t('fluctuations.intensity.help')}
+                    help={
+                      <>
+                        {t('fluctuations.intensity.help')}
+                        <div className="mt-1 opacity-80">{dangerZoneNote}</div>
+                      </>
+                    }
+
                 />
                 <div className="mt-2">
-                  <Slider
-                    value={[lakeNoisePercent]}
-                    min={0}
-                    max={100}
-                    step={1}
-                    onValueChange={(v) => game.setLakeNoiseIntensityPercent(v[0] ?? lakeNoisePercent)}
-                  />
+                   <Slider
+                     value={[lakeNoisePercent]}
+                     min={0}
+                     max={100}
+                     step={1}
+                     dangerRanges={mediumDangerZones.lakeNoise}
+                     onValueChange={(v) => game.setLakeNoiseIntensityPercent(v[0] ?? lakeNoisePercent)}
+                   />
+
                 </div>
               </div>
 

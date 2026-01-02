@@ -191,6 +191,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'hints.shortcut.step': 'Step',
     'hints.shortcut.random': 'Random',
     'hints.shortcut.stop': 'Stop',
+
+    'slider.dangerZoneNote':
+      'The tinted part of the slider marks a regime where the model becomes physically implausible (you are mostly seeing numerical clamping/saturation rather than meaningful dynamics).',
   },
 
   sk: {
@@ -370,6 +373,9 @@ export const MESSAGES: Record<Locale, Messages> = {
     'hints.shortcut.step': 'Step',
     'hints.shortcut.random': 'Random',
     'hints.shortcut.stop': 'Stop',
+
+    'slider.dangerZoneNote':
+      'Zafarbená časť slideru označuje režim, kde sa model stáva fyzikálne neplauzibilný (uvidíš skôr numerické saturovanie/clamp než zmysluplnú dynamiku).',
   },
 
   de: {
