@@ -1221,31 +1221,51 @@ export default function Sidebar({ game, theme, setTheme, onHide, quickStartOptio
           </div>
 
            <div className="rounded-2xl border border-[var(--panel-border)] bg-[var(--field)] p-3 text-xs opacity-80">
-            <div>{t('hints.drawing')}</div>
-            <div className="mt-2">
-              {t('hints.shortcuts')}
-              <kbd className="rounded-md border border-[var(--kbd-border)] bg-[var(--field)] px-1.5 py-0.5 font-mono text-[11px] border-b-2">
-                Space
-              </kbd>
-               ={t('hints.shortcut.playPause')},
+             <div>{t('hints.drawing')}</div>
+             <div className="mt-2">
+               {t('hints.shortcuts')}
+               <kbd className="rounded-md border border-[var(--kbd-border)] bg-[var(--field)] px-1.5 py-0.5 font-mono text-[11px] border-b-2">
+                 Space
+               </kbd>
+                ={t('hints.shortcut.playPause')},
 
-              <kbd className="rounded-md border border-[var(--kbd-border)] bg-[var(--field)] px-1.5 py-0.5 font-mono text-[11px] border-b-2">
-                Enter
-              </kbd>
-               ={t('hints.shortcut.step')},
+               <kbd className="rounded-md border border-[var(--kbd-border)] bg-[var(--field)] px-1.5 py-0.5 font-mono text-[11px] border-b-2">
+                 Enter
+               </kbd>
+                ={t('hints.shortcut.step')},
 
-              <kbd className="rounded-md border border-[var(--kbd-border)] bg-[var(--field)] px-1.5 py-0.5 font-mono text-[11px] border-b-2">
-                R
-              </kbd>
-               ={t('hints.shortcut.random')},
+               <kbd className="rounded-md border border-[var(--kbd-border)] bg-[var(--field)] px-1.5 py-0.5 font-mono text-[11px] border-b-2">
+                 R
+               </kbd>
+                ={t('hints.shortcut.random')},
 
-              <kbd className="rounded-md border border-[var(--kbd-border)] bg-[var(--field)] px-1.5 py-0.5 font-mono text-[11px] border-b-2">
-                C
-              </kbd>
-               ={t('hints.shortcut.stop')}
-            </div>
-          </div>
-        </div>
+               <kbd className="rounded-md border border-[var(--kbd-border)] bg-[var(--field)] px-1.5 py-0.5 font-mono text-[11px] border-b-2">
+                 C
+               </kbd>
+                ={t('hints.shortcut.stop')}
+             </div>
+           </div>
+
+           <a
+             className={cn(
+               'inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--panel-border)] bg-[var(--field)]',
+               'px-3 py-2 text-xs font-medium opacity-80 transition',
+               'hover:-translate-y-0.5 hover:border-[var(--primary)] hover:opacity-100',
+               'active:translate-y-0 active:scale-[0.99]'
+             )}
+             href="https://github.com/igisho/GameOfLife"
+             target="_blank"
+             rel="noreferrer"
+           >
+             <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+               <path
+                 fill="currentColor"
+                 d="M12 .5C5.65.5.5 5.8.5 12.32c0 5.22 3.29 9.65 7.86 11.22.58.11.79-.26.79-.57 0-.28-.01-1.03-.02-2.02-3.2.72-3.88-1.59-3.88-1.59-.52-1.37-1.27-1.73-1.27-1.73-1.04-.73.08-.72.08-.72 1.15.08 1.76 1.21 1.76 1.21 1.02 1.8 2.68 1.28 3.33.98.1-.76.4-1.28.72-1.57-2.55-.3-5.23-1.31-5.23-5.84 0-1.29.44-2.34 1.17-3.17-.12-.3-.51-1.51.11-3.15 0 0 .96-.32 3.14 1.21.91-.26 1.88-.39 2.85-.39.97 0 1.94.13 2.85.39 2.18-1.53 3.14-1.21 3.14-1.21.62 1.64.23 2.85.11 3.15.73.83 1.17 1.88 1.17 3.17 0 4.54-2.69 5.54-5.25 5.84.41.36.77 1.08.77 2.18 0 1.57-.01 2.84-.01 3.23 0 .31.21.68.8.57 4.56-1.58 7.85-6 7.85-11.22C23.5 5.8 18.35.5 12 .5z"
+               />
+             </svg>
+             <span>{t('repo.link')}</span>
+           </a>
+         </div>
       </ScrollArea>
     </aside>
     </>

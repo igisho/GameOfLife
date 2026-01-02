@@ -35,6 +35,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'start.pattern.doubleBlockPair': 'Double block ±',
     'start.pattern.doubleBlockPair.subtitle': '6 + 6 (blocks)',
 
+    'repo.link': 'GitHub repository',
+
     'app.openMenu': 'Open menu',
     'app.closeMenu': 'Close menu',
     'app.status.running': 'Running',
@@ -254,6 +256,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'start.pattern.doubleBlockPair': 'Dvojblok ±',
     'start.pattern.doubleBlockPair.subtitle': '6 + 6 (bloky)',
 
+    'repo.link': 'Repozitár na GitHube',
+
     'app.openMenu': 'Otvoriť menu',
     'app.closeMenu': 'Zavrieť menu',
     'app.status.running': 'Beží',
@@ -462,6 +466,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'start.pattern.doubleBlockPair': 'Doppelblock ±',
     'start.pattern.doubleBlockPair.subtitle': '6 + 6 (Blöcke)',
 
+    'repo.link': 'GitHub‑Repository',
+
     'app.openMenu': 'Menü öffnen',
     'app.closeMenu': 'Menü schließen',
     'app.status.running': 'Läuft',
@@ -662,6 +668,8 @@ export const MESSAGES: Record<Locale, Messages> = {
     'start.pattern.l3Pair.subtitle': '3 + 3 (diagonal)',
     'start.pattern.doubleBlockPair': 'Double bloc ±',
     'start.pattern.doubleBlockPair.subtitle': '6 + 6 (blocs)',
+
+    'repo.link': 'Dépôt GitHub',
 
     'app.openMenu': 'Ouvrir le menu',
     'app.closeMenu': 'Fermer le menu',
