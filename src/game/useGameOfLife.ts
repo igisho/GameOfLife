@@ -145,7 +145,7 @@ export function useGameOfLife(): UseGameOfLifeResult {
     lakeBlobShape: 'circle',
 
     holographicViewMode: 0,
-    holographicSteps: 18,
+    holographicSteps: 6,
     holographicGridN: 4,
     holographicThr: 0.06,
     holographicGamma: 1.85,

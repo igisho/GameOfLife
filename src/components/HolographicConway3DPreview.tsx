@@ -616,7 +616,12 @@ export default function HolographicConway3DPreview({
     sphereFade: number;
   } | null>(null);
 
-  const dragRef = useRef<{ active: boolean; x: number; y: number }>({ active: false, x: 0, y: 0 });
+  const dragRef = useRef<{ active: boolean; x: number; y: number; moved: boolean }>({
+    active: false,
+    x: 0,
+    y: 0,
+    moved: false,
+  });
   const viewModeRef = useRef(0);
 
   const [orbit, setOrbitState] = useState<Orbit>({ yaw: 0.35, pitch: 0.25, zoom: 0.92 });
@@ -679,7 +684,24 @@ export default function HolographicConway3DPreview({
     if (!canvas) return;
 
     const onMouseDown = (e: MouseEvent) => {
-      dragRef.current = { active: true, x: e.clientX, y: e.clientY };
+      dragRef.current = { active: true, x: e.clientX, y: e.clientY, moved: false };
+    };
+
+    const clearAccum = () => {
+      if (rendererEffective !== 'webgl' || viewModeRef.current !== 0) return;
+      const s = webglRef.current;
+      if (!s) return;
+
+      const gl = s.gl;
+      const bg = rgbToVec3(parseCssColor(readCssVar('--canvas') || '#000'));
+      for (const fbo of [s.fboA, s.fboB]) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.viewport(0, 0, s.accumW || 1, s.accumH || 1);
+        gl.clearColor(bg[0], bg[1], bg[2], 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      s.ping = 0;
     };
 
     const onMouseMove = (e: MouseEvent) => {
@@ -689,6 +711,8 @@ export default function HolographicConway3DPreview({
       dragRef.current.x = e.clientX;
       dragRef.current.y = e.clientY;
 
+      if (Math.abs(dx) + Math.abs(dy) > 1) dragRef.current.moved = true;
+
       setOrbit((o) => {
         const yaw = o.yaw + dx * 0.0021;
         const pitch = clamp(o.pitch + dy * 0.0021, -1.15, 1.15);
@@ -697,11 +721,17 @@ export default function HolographicConway3DPreview({
     };
 
     const onMouseUp = () => {
+      const didMove = dragRef.current.active && dragRef.current.moved;
       dragRef.current.active = false;
+      dragRef.current.moved = false;
+
+      // Reset temporal accumulation after confirming the new orientation.
+      if (didMove) clearAccum();
     };
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      clearAccum();
       const delta = Math.sign(e.deltaY);
       setOrbit((o) => ({ ...o, zoom: clamp(o.zoom * (delta > 0 ? 1.06 : 0.94), 0.65, 2.2) }));
     };
