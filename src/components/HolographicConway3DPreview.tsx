@@ -517,6 +517,7 @@ type WebGLState = {
   accumTexA: WebGLTexture;
   accumTexB: WebGLTexture;
   accumType: number; // gl.FLOAT | ext.HALF_FLOAT_OES | gl.UNSIGNED_BYTE
+  accumFilter: 'linear' | 'nearest';
 
   fboA: WebGLFramebuffer;
   fboB: WebGLFramebuffer;
@@ -573,16 +574,26 @@ type WebGLState = {
   uAntiDisplay: WebGLUniformLocation;
 };
 
-function attachTextureToFbo(gl: WebGLRenderingContext, fbo: WebGLFramebuffer, tex: WebGLTexture, w: number, h: number, type: number) {
+function attachTextureToFbo(
+  gl: WebGLRenderingContext,
+  fbo: WebGLFramebuffer,
+  tex: WebGLTexture,
+  w: number,
+  h: number,
+  type: number,
+  filter: 'linear' | 'nearest'
+) {
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
   gl.bindTexture(gl.TEXTURE_2D, tex);
-  setupLinearTexture(gl);
+  if (filter === 'linear') setupLinearTexture(gl);
+  else setupNearestTexture(gl);
+
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, type, null);
   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
   const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
   gl.bindTexture(gl.TEXTURE_2D, null);
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  return status === gl.FRAMEBUFFER_COMPLETE;
+  return status;
 }
 
 export default function HolographicConway3DPreview({
@@ -825,23 +836,55 @@ export default function HolographicConway3DPreview({
     });
 
     // Decide precision for field texture and accumulation buffers.
-    // Order: float > half > byte.
-    // For field, we need linearity if we want smooth sampling, but we can live with nearest.
-    // For accum, we really need float/half for >1 range and precision.
+    // IMPORTANT: On WebGL1 (especially iOS Safari), "texture supported" does not imply
+    // "filtering" nor "renderable to FBO". We pick the first option that yields a COMPLETE FBO.
 
-    let fieldMode: 'float' | 'half' | 'byte' = 'byte';
-    let accumType: number = gl.UNSIGNED_BYTE;
+    const extColorFloat = gl.getExtension('WEBGL_color_buffer_float');
+    const extColorHalf = gl.getExtension('EXT_color_buffer_half_float');
 
-    if (extFloat) {
-      fieldMode = 'float';
-      accumType = gl.FLOAT;
-    } else if (extHalf) {
-      fieldMode = 'half';
-      accumType = extHalf.HALF_FLOAT_OES;
-    } else {
-      fieldMode = 'byte';
-      accumType = gl.UNSIGNED_BYTE;
+    const supportsFloatLinear = !!extFloatLin;
+    const supportsHalfLinear = !!extHalfLin;
+
+    // Default field mode: prefer float/half if available (upload), but we'll still pack bytes if needed.
+    let fieldMode: 'float' | 'half' | 'byte' = extFloat ? 'float' : extHalf ? 'half' : 'byte';
+
+    // Candidate accumulation formats, ordered by preference.
+    const candidates: Array<{ type: number; filter: 'linear' | 'nearest'; label: string }> = [];
+
+    // Prefer HALF_FLOAT on iOS-like setups where float linear is missing.
+    if (extHalf && extColorHalf) {
+      candidates.push({
+        type: extHalf.HALF_FLOAT_OES,
+        filter: supportsHalfLinear ? 'linear' : 'nearest',
+        label: 'half',
+      });
     }
+
+    if (extFloat && extColorFloat) {
+      candidates.push({ type: gl.FLOAT, filter: supportsFloatLinear ? 'linear' : 'nearest', label: 'float' });
+    }
+
+    // Safe fallback: RGBA8
+    candidates.push({ type: gl.UNSIGNED_BYTE, filter: 'linear', label: 'byte' });
+
+    // Probe which accumulation type is actually renderable.
+    let accumType: number = gl.UNSIGNED_BYTE;
+    let accumFilter: 'linear' | 'nearest' = 'linear';
+
+    for (const c of candidates) {
+      const statusA = attachTextureToFbo(gl, fboA, accumTexA, 2, 2, c.type, c.filter);
+      const statusB = attachTextureToFbo(gl, fboB, accumTexB, 2, 2, c.type, c.filter);
+      if (statusA === gl.FRAMEBUFFER_COMPLETE && statusB === gl.FRAMEBUFFER_COMPLETE) {
+        accumType = c.type;
+        accumFilter = c.filter;
+        // eslint-disable-next-line no-console
+        console.log('[Holographic] Accum format:', c.label, 'filter:', c.filter);
+        break;
+      }
+    }
+
+    // Store chosen filter on the WebGLState via closure below.
+
 
     // Uniform locations for accum
     const aPosAccum = gl.getAttribLocation(progAccum, 'aPos');
@@ -957,6 +1000,7 @@ export default function HolographicConway3DPreview({
       accumTexA,
       accumTexB,
       accumType,
+      accumFilter,
       fboA,
       fboB,
       accumW: 0,
@@ -1056,12 +1100,12 @@ export default function HolographicConway3DPreview({
         state.accumH = accH;
         state.ping = 0;
 
-        const okA = attachTextureToFbo(gl, state.fboA, state.accumTexA, accW, accH, state.accumType);
-        const okB = attachTextureToFbo(gl, state.fboB, state.accumTexB, accW, accH, state.accumType);
+        const statusA = attachTextureToFbo(gl, state.fboA, state.accumTexA, accW, accH, state.accumType, state.accumFilter);
+        const statusB = attachTextureToFbo(gl, state.fboB, state.accumTexB, accW, accH, state.accumType, state.accumFilter);
 
-        if (!okA || !okB) {
+        if (statusA !== gl.FRAMEBUFFER_COMPLETE || statusB !== gl.FRAMEBUFFER_COMPLETE) {
           // eslint-disable-next-line no-console
-          console.warn('[Holographic] framebuffer incomplete');
+          console.warn('[Holographic] framebuffer incomplete', statusA, statusB);
         }
 
         // Clear both accum buffers to background.
