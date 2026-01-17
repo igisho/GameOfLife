@@ -1098,29 +1098,6 @@ export default function Sidebar({
                 <span className="opacity-80"> {t('holographic.computeHeavy.body')}</span>
               </div>
 
-              <div className="mt-3">
-                <HelpRow
-                  label={<div className="text-xs font-medium opacity-90">{t('holographic.view.label')}</div>}
-                  help={t('holographic.view.help')}
-                />
-                <div className="mt-2">
-                  <Select
-                    value={String(game.settings.holographicViewMode)}
-                    onValueChange={(v) => game.setHolographicViewMode(clamp(Number(v), 0, 4) as 0 | 1 | 2 | 3 | 4)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t('common.choose')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">{t('holographic.view.hologram')}</SelectItem>
-                      <SelectItem value="1">{t('holographic.view.sources')}</SelectItem>
-                      <SelectItem value="2">{t('holographic.view.field')}</SelectItem>
-                      <SelectItem value="3">{t('holographic.view.delta')}</SelectItem>
-                      <SelectItem value="4">{t('holographic.view.accum')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
 
               <div className="mt-3">
                 <HelpRow

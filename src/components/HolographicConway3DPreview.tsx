@@ -1473,17 +1473,17 @@ export default function HolographicConway3DPreview({
 
 
   return (
-    <div className={cn('bg-[var(--canvas)]', className)}>
-      <div className="relative">
-        <canvas
-          ref={canvasRef}
-          key={rendererEffective} // Force remount when switching renderers to get a fresh context.
-          className="h-full w-full"
-          role="img"
-          aria-label={t('holographic.aria')}
-        />
+    <div className={cn('relative h-full w-full bg-[var(--canvas)]', className)}>
+      <canvas
+        ref={canvasRef}
+        key={rendererEffective} // Force remount when switching renderers to get a fresh context.
+        className="absolute inset-0 h-full w-full"
+        role="img"
+        aria-label={t('holographic.aria')}
+      />
 
-        <div className="pointer-events-none absolute right-2 top-2 flex flex-col gap-2">
+      {rendererEffective === 'webgl' && viewMode === 0 ? (
+        <div className="pointer-events-none absolute bottom-2 right-2 flex flex-col gap-2">
           <Button
             className="pointer-events-auto h-9 w-9 rounded-full p-0"
             onClick={() => setOrbit((o) => ({ ...o, zoom: clamp(o.zoom * 0.92, 0.65, 2.2) }))}
@@ -1520,8 +1520,7 @@ export default function HolographicConway3DPreview({
             </svg>
           </Button>
         </div>
-      </div>
-
+      ) : null}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import LifeCanvas, { type MediumPreviewFrame } from './components/LifeCanvas';
 import MediumLake3DPreview from './components/MediumLake3DPreview';
 import HolographicConway3DPreview from './components/HolographicConway3DPreview';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/Select';
 import Sidebar from './components/Sidebar';
 import StartOverlay from './components/StartOverlay';
 import Button from './components/ui/Button';
@@ -11,7 +11,7 @@ import { BLINKER, START_L3, START_SHIFTED_2X2 } from './game/patterns';
 import { cn } from './lib/cn';
 import { applyTheme, type ThemeName } from './lib/themes';
 import { useI18n } from './i18n/I18nProvider';
-import Tooltip from './components/ui/Tooltip';
+
 
 function formatCount(n: number) {
   const v = Math.max(0, Math.floor(Number.isFinite(n) ? n : 0));
@@ -44,13 +44,7 @@ function formatSigned(x: number) {
   return `${sign}${s}`;
 }
 
-function formatMagnitude(x: number) {
-  const v = Number.isFinite(x) ? Math.abs(x) : 0;
-  if (v < 0.001) return '0';
-  if (v >= 1000) return v.toFixed(0);
-  if (v >= 10) return v.toFixed(2).replace(/(\.\d*?)0+$/, '$1');
-  return v.toFixed(3).replace(/(\.\d*?)0+$/, '$1');
-}
+
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
@@ -98,8 +92,9 @@ export default function App() {
 
   const [mediumAvg, setMediumAvg] = useState(0);
   const [mediumPreview, setMediumPreview] = useState<MediumPreviewFrame | null>(null);
-  const [mediumPreviewOpen, setMediumPreviewOpen] = useState(false);
-  const [mediumPreviewTab, setMediumPreviewTab] = useState<'surface' | 'holographic'>('surface');
+
+  type MainView = 'grid' | 'medium_surface' | 'holo_0' | 'holo_1' | 'holo_2' | 'holo_3' | 'holo_4';
+  const [mainView, setMainView] = useState<MainView>('grid');
 
   const [liveSeries, setLiveSeries] = useState<number[]>(() => Array.from({ length: 64 }, () => 0));
   const [antiSeries, setAntiSeries] = useState<number[]>(() => Array.from({ length: 64 }, () => 0));
@@ -192,41 +187,9 @@ export default function App() {
   }, [game, startOverlayOpen]);
 
   useEffect(() => {
-     if (!mediumPreviewOpen) return;
-     if (game.settings.mediumMode === 'off') {
-       setMediumPreviewOpen(false);
-       return;
-     }
-
-     // Keep the default tab consistent.
-     setMediumPreviewTab('surface');
-
-
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-
-      if (e.code === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        setMediumPreviewOpen(false);
-        return;
-      }
-
-      if (e.code === 'Space' || e.code === 'Enter' || key === 'r' || key === 'c') {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown, { capture: true });
-    return () => {
-      window.removeEventListener('keydown', onKeyDown, { capture: true });
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [game.settings.mediumMode, mediumPreviewOpen]);
+    // If medium is off, keep main view on grid.
+    if (game.settings.mediumMode === 'off' && mainView !== 'grid') setMainView('grid');
+  }, [game.settings.mediumMode, mainView]);
 
   const BLINKER_PAIR: string[] = ['OOO', 'AAA'];
   const L3_PAIR: string[] = ['XOO', 'AXO', 'AAX'];
@@ -363,131 +326,7 @@ export default function App() {
     setSidebarOpen(true);
   }, []);
 
-  const mediumPreviewModal = mediumPreviewOpen
-    ? createPortal(
-        <div
-          className="fixed inset-0 z-[90] flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={t('app.medium')}
-        >
-          <div
-            className="absolute inset-0 bg-black/60"
-            onMouseDown={() => setMediumPreviewOpen(false)}
-            aria-hidden="true"
-          />
-
-<div
-             className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-[980px] flex-col overflow-visible rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg"
-             onMouseDown={(e) => e.stopPropagation()}
-           >
-             <div className="flex items-center justify-between gap-3 border-b border-[var(--panel-border)] p-4">
-               <div className="min-w-0">
-                 <div className="text-sm font-semibold">{t('app.medium')}</div>
-               </div>
-
-                <div className="flex items-center gap-2">
-                  {mediumPreviewTab === 'holographic' ? (
-                    <Tooltip label={t('holographic.header.help')} side="bottom" sideOffset={10}>
-                      <span
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--field)] text-xs font-semibold opacity-80"
-                        aria-label={t('holographic.header.aria')}
-                      >
-                        i
-                      </span>
-                    </Tooltip>
-                  ) : null}
-
-                  <div className="inline-flex rounded-full border border-[var(--panel-border)] bg-[var(--field)] p-1">
-                   <button
-                     type="button"
-                     className={cn(
-                       'h-8 rounded-full px-3 text-xs font-medium transition-colors',
-                       mediumPreviewTab === 'surface' ? 'bg-[var(--panel)]' : 'opacity-70 hover:opacity-100'
-                     )}
-                     onClick={() => setMediumPreviewTab('surface')}
-                   >
-                     {t('app.mediumPreview.tab.surface')}
-                   </button>
-                   <button
-                     type="button"
-                     className={cn(
-                       'h-8 rounded-full px-3 text-xs font-medium transition-colors',
-                       mediumPreviewTab === 'holographic' ? 'bg-[var(--panel)]' : 'opacity-70 hover:opacity-100'
-                     )}
-                     onClick={() => setMediumPreviewTab('holographic')}
-                   >
-                     {t('app.mediumPreview.tab.holographic')}
-                   </button>
-                 </div>
-
-                 <Button
-                   className="h-9 w-9 rounded-full p-0"
-                   onClick={() => setMediumPreviewOpen(false)}
-                   aria-label={t('common.close')}
-                 >
-                   <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
-                     <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                   </svg>
-                 </Button>
-               </div>
-             </div>
- 
-              <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                {mediumPreviewTab === 'surface' ? (
-                  <div className="aspect-[16/10] w-full">
-                    <MediumLake3DPreview
-                      renderer="webgl"
-                      enabled={game.settings.mediumMode !== 'off'}
-                      frame={mediumPreview}
-                      className="h-full w-full overflow-hidden rounded-xl border border-[var(--panel-border)]"
-                    />
-                  </div>
-                ) : (
-                  <HolographicConway3DPreview
-                    renderer="webgl"
-                    enabled={game.settings.mediumMode !== 'off'}
-                    frame={mediumPreview}
-                    className="w-full rounded-xl border border-[var(--panel-border)]"
-                    viewMode={game.settings.holographicViewMode}
-                    orbit={{ yaw: 0.35, pitch: 0.25, zoom: 0.92 }}
-                    tuning={{
-                      steps: game.settings.holographicSteps,
-                      gridN: game.settings.holographicGridN,
-                      thr: game.settings.holographicThr,
-                      gamma: game.settings.holographicGamma,
-                      k: game.settings.holographicK,
-                      phaseGain: game.settings.holographicPhaseGain,
-                      exposureBoost: game.settings.holographicExposureBoost,
-                      feedbackStable: game.settings.holographicFeedbackStable,
-                      feedbackTurb: game.settings.holographicFeedbackTurb,
-                      deltaGain: game.settings.holographicDeltaGain,
-                      sphereR: game.settings.holographicSphereR,
-                      sphereFade: game.settings.holographicSphereFade,
-                    }}
-                    onOrbitChange={() => {}}
-                  />
-                )}
-
-
-               {mediumPreview && mediumPreviewTab === 'surface' ? (
-                 <div className="mt-3 rounded-xl border border-[var(--panel-border)] bg-[var(--field)] p-3 text-xs">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('medium.legend.title')}</div>
-                  <div className="mt-1 tabular-nums opacity-90">
-                    {t('medium.legend.body', {
-                      p95: formatMagnitude(mediumPreview.absP95),
-                      p99: formatMagnitude(mediumPreview.absP99),
-                      max: formatMagnitude(mediumPreview.absMax),
-                    })}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )
-    : null;
+  const mediumPreviewModal = null;
 
   return (
     <div className="relative h-full min-h-0 p-4">
@@ -582,9 +421,46 @@ export default function App() {
                ) : null}
 
 
-              <div className="pointer-events-none absolute right-4 top-4 space-y-2" style={{ zIndex: 49 }}>
-                <div
-                  className="w-[200px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
+               <div className="pointer-events-none absolute right-4 top-4 space-y-2" style={{ zIndex: 49 }}>
+                 <div
+                   className="pointer-events-auto w-[220px] overflow-visible rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
+                   style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
+                 >
+                   <div className="mb-2 flex items-center justify-between gap-2">
+                     <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('app.view.label')}</div>
+                     <div className="tabular-nums text-[11px] opacity-60">{mainView === 'grid' ? '' : t('app.view.mediumBadge')}</div>
+                   </div>
+
+                   <Select value={mainView} onValueChange={(v) => setMainView(v as MainView)}>
+                     <SelectTrigger className="h-9">
+                       <SelectValue placeholder={t('common.choose')} />
+                     </SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value="grid">{t('app.view.grid')}</SelectItem>
+                       <SelectItem value="medium_surface" disabled={game.settings.mediumMode === 'off'}>
+                         {t('app.view.surface')}
+                       </SelectItem>
+                       <SelectItem value="holo_0" disabled={game.settings.mediumMode === 'off'}>
+                         {t('app.view.hologram')}
+                       </SelectItem>
+                       <SelectItem value="holo_1" disabled={game.settings.mediumMode === 'off'}>
+                         {t('app.view.holoSources')}
+                       </SelectItem>
+                       <SelectItem value="holo_2" disabled={game.settings.mediumMode === 'off'}>
+                         {t('app.view.holoField')}
+                       </SelectItem>
+                       <SelectItem value="holo_3" disabled={game.settings.mediumMode === 'off'}>
+                         {t('app.view.holoDelta')}
+                       </SelectItem>
+                       <SelectItem value="holo_4" disabled={game.settings.mediumMode === 'off'}>
+                         {t('app.view.holoAccum')}
+                       </SelectItem>
+                     </SelectContent>
+                   </Select>
+                 </div>
+
+                 <div
+                  className="w-[220px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
                   style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
                 >
                   <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('app.medium')}</div>
@@ -595,12 +471,16 @@ export default function App() {
                       className="block h-[92px] w-full overflow-hidden rounded-md"
                     />
                     {game.settings.mediumMode !== 'off' ? (
-                      <button
-                        type="button"
-                        className="pointer-events-auto absolute right-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--panel-border)] bg-[var(--field)] text-[var(--text)] opacity-80 shadow-sm transition-opacity hover:opacity-100"
-                        onClick={() => setMediumPreviewOpen(true)}
-                        aria-label={t('app.mediumPreview.expand')}
-                      >
+                       <button
+                         type="button"
+                         className="pointer-events-auto absolute right-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--panel-border)] bg-[var(--field)] text-[var(--text)] opacity-80 shadow-sm transition-opacity hover:opacity-100"
+                         onClick={() => {
+                           // Toggle between grid and a medium view.
+                           if (mainView === 'grid') setMainView('medium_surface');
+                           else setMainView('grid');
+                         }}
+                         aria-label={t('app.view.toggle')}
+                       >
                         <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
                           <path d="M9 3H3v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           <path d="M3 3l7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -652,7 +532,7 @@ export default function App() {
                </div>
 
                <div
-                 className="w-[200px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
+                 className="w-[220px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
                  style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
                >
                   <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('app.cellCounts')}</div>
@@ -693,27 +573,62 @@ export default function App() {
                </div>
              </div>
 
-             <div ref={canvasScrollRef} className="h-full overflow-auto">
+              <div ref={canvasScrollRef} className={cn('h-full', mainView === 'grid' ? 'overflow-auto' : 'overflow-hidden')}>
+                {/* Keep LifeCanvas mounted so mediumPreview continues updating even when grid is hidden. */}
+                <div className={mainView === 'grid' ? 'block h-full' : 'hidden'}>
                   <LifeCanvas
- 
-                   settings={game.settings}
-                   liveRef={game.liveRef}
-                   antiLiveRef={game.antiLiveRef}
-                   annihilationRef={game.annihilationRef}
-                   annihilationNonce={game.annihilationNonce}
-                   generation={game.generation}
-                   drawNonce={game.drawNonce}
-                   resetNonce={game.resetNonce}
-                   theme={theme}
- 
-                 onPaintCell={game.paintCell}
-                onNucleateCells={game.nucleateCells}
-                onNucleateAntiCells={game.nucleateAntiCells}
-                 onMediumAvgAmplitude={onMediumAvgAmplitude}
-                 onMediumPreview={onMediumPreview}
-                />
+                    settings={game.settings}
+                    liveRef={game.liveRef}
+                    antiLiveRef={game.antiLiveRef}
+                    annihilationRef={game.annihilationRef}
+                    annihilationNonce={game.annihilationNonce}
+                    generation={game.generation}
+                    drawNonce={game.drawNonce}
+                    resetNonce={game.resetNonce}
+                    theme={theme}
+                    onPaintCell={game.paintCell}
+                    onNucleateCells={game.nucleateCells}
+                    onNucleateAntiCells={game.nucleateAntiCells}
+                    onMediumAvgAmplitude={onMediumAvgAmplitude}
+                    onMediumPreview={onMediumPreview}
+                  />
+                </div>
 
-             </div>
+                {mainView !== 'grid' ? (
+                  <div className="h-full min-h-0">
+                    {mainView === 'medium_surface' ? (
+                      <MediumLake3DPreview
+                        renderer="webgl"
+                        enabled={game.settings.mediumMode !== 'off'}
+                        frame={mediumPreview}
+                        className="h-full w-full"
+                      />
+                    ) : (
+                      <HolographicConway3DPreview
+                        renderer="webgl"
+                        enabled={game.settings.mediumMode !== 'off'}
+                        frame={mediumPreview}
+                        viewMode={mainView === 'holo_0' ? 0 : mainView === 'holo_1' ? 1 : mainView === 'holo_2' ? 2 : mainView === 'holo_3' ? 3 : 4}
+                        tuning={{
+                          steps: game.settings.holographicSteps,
+                          gridN: game.settings.holographicGridN,
+                          thr: game.settings.holographicThr,
+                          gamma: game.settings.holographicGamma,
+                          k: game.settings.holographicK,
+                          phaseGain: game.settings.holographicPhaseGain,
+                          exposureBoost: game.settings.holographicExposureBoost,
+                          feedbackStable: game.settings.holographicFeedbackStable,
+                          feedbackTurb: game.settings.holographicFeedbackTurb,
+                          deltaGain: game.settings.holographicDeltaGain,
+                          sphereR: game.settings.holographicSphereR,
+                          sphereFade: game.settings.holographicSphereFade,
+                        }}
+                        className="h-full w-full"
+                      />
+                    )}
+                  </div>
+                ) : null}
+              </div>
 
              <StartOverlay
                open={startOverlayOpen}
