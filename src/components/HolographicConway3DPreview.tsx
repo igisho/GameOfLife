@@ -3,7 +3,23 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { readCssVar } from '../lib/themes';
 import { cn } from '../lib/cn';
 import Button from './ui/Button';
+import { useI18n } from '../i18n/I18nProvider';
 import type { MediumPreviewFrame } from './LifeCanvas';
+
+type Tuning = {
+  steps: number;
+  gridN: number;
+  thr: number;
+  gamma: number;
+  k: number;
+  phaseGain: number;
+  exposureBoost: number;
+  feedbackStable: number;
+  feedbackTurb: number;
+  deltaGain: number;
+  sphereR: number;
+  sphereFade: number;
+};
 
 type Props = {
   frame: MediumPreviewFrame | null;
@@ -14,6 +30,13 @@ type Props = {
    * `canvas2d` is a lightweight fallback.
    */
   renderer?: 'canvas2d' | 'webgl';
+
+  // Settings are managed by Sidebar; this component only renders.
+  viewMode: 0 | 1 | 2 | 3 | 4;
+  tuning: Tuning;
+
+  // Increment to trigger a copy-debug snapshot from outside (Sidebar button).
+  copyDebugNonce?: number;
 };
 
 type Rgb = { r: number; g: number; b: number };
@@ -129,6 +152,7 @@ function createFramebuffer(gl: WebGLRenderingContext) {
   return fbo;
 }
 
+
 const VS_SOURCE = `
 attribute vec2 aPos;
 varying vec2 vUv;
@@ -168,6 +192,7 @@ uniform float uSphereR;
 uniform float uSphereFade;
 uniform float uExposureBoost;
 uniform float uGridN;
+uniform float uSteps;
 
 uniform vec3 uBg;
 uniform vec3 uMatter;
@@ -322,8 +347,10 @@ void main() {
   float sphereR = uSphereR;
   float sphereFade = uSphereFade;
 
-  // Monte Carlo over depth: keep steps moderate. JS tuning uses uExposureBoost, uGridN, etc.
-  const int STEPS = 28;
+  // Monte Carlo over depth: runtime-controlled step count.
+  // WebGL1 needs a compile-time loop bound, so we use MAX_STEPS and skip past uSteps.
+  const int MAX_STEPS = 32;
+  int steps = int(clamp(uSteps, 6.0, float(MAX_STEPS)));
 
   float accumA = 0.0;
   vec3 accumC = vec3(0.0);
@@ -334,8 +361,10 @@ void main() {
   // Per-frame jitter in depth sampling (reduces banding).
   float jitter = hash12(gl_FragCoord.xy + uSeed * 13.7);
 
-  for (int i = 0; i < STEPS; i++) {
-    float ft = (float(i) + jitter) / float(STEPS - 1);
+  for (int i = 0; i < MAX_STEPS; i++) {
+    if (i >= steps) continue;
+    float denom = max(1.0, float(steps - 1));
+    float ft = (float(i) + jitter) / denom;
     float tt = mix(tEnter, tExit, ft);
     vec3 p = ro + rd * tt;
 
@@ -520,6 +549,7 @@ type WebGLState = {
   uSphereFade: WebGLUniformLocation;
   uExposureBoost: WebGLUniformLocation;
   uGridN: WebGLUniformLocation;
+  uSteps: WebGLUniformLocation;
 
   uBgAccum: WebGLUniformLocation;
   uMatter: WebGLUniformLocation;
@@ -555,7 +585,17 @@ function attachTextureToFbo(gl: WebGLRenderingContext, fbo: WebGLFramebuffer, te
   return status === gl.FRAMEBUFFER_COMPLETE;
 }
 
-export default function HolographicConway3DPreview({ frame, enabled, className, renderer = 'webgl' }: Props) {
+export default function HolographicConway3DPreview({
+  frame,
+  enabled,
+  className,
+  renderer = 'webgl',
+  viewMode,
+  tuning: tuningFromProps,
+  copyDebugNonce,
+}: Props) {
+  void copyDebugNonce;
+  const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const webglRef = useRef<WebGLState | null>(null);
   const frameRef = useRef<MediumPreviewFrame | null>(frame);
@@ -577,24 +617,17 @@ export default function HolographicConway3DPreview({ frame, enabled, className, 
   } | null>(null);
 
   const dragRef = useRef<{ active: boolean; x: number; y: number }>({ active: false, x: 0, y: 0 });
-  const [orbit, setOrbit] = useState<Orbit>({ yaw: 0.35, pitch: 0.25, zoom: 0.92 });
-  const [viewMode, setViewMode] = useState(0);
   const viewModeRef = useRef(0);
 
-  const [tuning, _setTuning] = useState({
-    steps: 28,
-    gridN: 8,
-    thr: 0.06,
-    gamma: 1.85,
-    k: 13,
-    phaseGain: 5,
-    exposureBoost: 1,
-    feedbackStable: 0.965,
-    feedbackTurb: 0.88,
-    deltaGain: 1.8,
-    sphereR: 2.1,
-    sphereFade: 0.9,
-  });
+  const [orbit, setOrbitState] = useState<Orbit>({ yaw: 0.35, pitch: 0.25, zoom: 0.92 });
+  const [tuning, setTuningState] = useState<Tuning>(tuningFromProps);
+
+  const setOrbit = (next: Orbit | ((prev: Orbit) => Orbit)) => {
+    setOrbitState((prev) => (typeof next === 'function' ? (next as (p: Orbit) => Orbit)(prev) : next));
+  };
+
+  // Keep tuning in sync with props.
+  useEffect(() => setTuningState(tuningFromProps), [tuningFromProps]);
   const [resizeNonce, setResizeNonce] = useState(0);
   const [webglSupported, setWebglSupported] = useState(true);
 
@@ -801,6 +834,7 @@ export default function HolographicConway3DPreview({ frame, enabled, className, 
     const uSphereFade = gl.getUniformLocation(progAccum, 'uSphereFade');
     const uExposureBoost = gl.getUniformLocation(progAccum, 'uExposureBoost');
     const uGridN = gl.getUniformLocation(progAccum, 'uGridN');
+    const uSteps = gl.getUniformLocation(progAccum, 'uSteps');
 
     const uBgAccum = gl.getUniformLocation(progAccum, 'uBg');
     const uMatter = gl.getUniformLocation(progAccum, 'uMatter');
@@ -845,6 +879,7 @@ export default function HolographicConway3DPreview({ frame, enabled, className, 
       !uSphereFade ||
       !uExposureBoost ||
       !uGridN ||
+      !uSteps ||
       !uBgAccum ||
       !uMatter ||
       !uAnti ||
@@ -919,6 +954,7 @@ export default function HolographicConway3DPreview({ frame, enabled, className, 
       uSphereFade,
       uExposureBoost,
       uGridN,
+      uSteps,
       uBgAccum,
       uMatter,
       uAnti,
@@ -1184,6 +1220,7 @@ export default function HolographicConway3DPreview({ frame, enabled, className, 
       gl.uniform1f(state.uSphereFade, tun.sphereFade);
       gl.uniform1f(state.uExposureBoost, tun.exposureBoost);
       gl.uniform1f(state.uGridN, tun.gridN);
+      gl.uniform1f(state.uSteps, tun.steps);
 
       gl.uniform3f(state.uBgAccum, bg[0], bg[1], bg[2]);
       gl.uniform3f(state.uMatter, matter[0], matter[1], matter[2]);
@@ -1433,315 +1470,55 @@ export default function HolographicConway3DPreview({ frame, enabled, className, 
     }
   }, [colors, enabled, frame, rendererEffective, resizeNonce, viewMode]);
 
+
+
   return (
-    <div className={cn('relative bg-[var(--canvas)]', className)}>
-      <canvas
-        ref={canvasRef}
-        key={rendererEffective} // Force remount when switching renderers to get a fresh context.
-        className="h-full w-full"
-        role="img"
-        aria-label="Holographic medium volume"
-      />
+    <div className={cn('bg-[var(--canvas)]', className)}>
+      <div className="relative">
+        <canvas
+          ref={canvasRef}
+          key={rendererEffective} // Force remount when switching renderers to get a fresh context.
+          className="h-full w-full"
+          role="img"
+          aria-label={t('holographic.aria')}
+        />
 
-      <div className="pointer-events-none absolute right-2 top-2 flex flex-col gap-2">
-        <Button
-          className="pointer-events-auto h-9 w-9 rounded-full p-0"
-          onClick={() => setOrbit((o) => ({ ...o, zoom: clamp(o.zoom * 0.92, 0.65, 2.2) }))}
-          aria-label="Zoom in"
-        >
-          <span className="text-lg leading-none">+</span>
-        </Button>
-        <Button
-          className="pointer-events-auto h-9 w-9 rounded-full p-0"
-          onClick={() => setOrbit((o) => ({ ...o, zoom: clamp(o.zoom * 1.08, 0.65, 2.2) }))}
-          aria-label="Zoom out"
-        >
-          <span className="text-lg leading-none">-</span>
-        </Button>
-        <Button
-          className="pointer-events-auto h-9 w-9 rounded-full p-0"
-          onClick={() => setOrbit({ yaw: 0.35, pitch: 0.25, zoom: 0.92 })}
-          aria-label="Reset view"
-        >
-          <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
-            <path
-              d="M21 12a9 9 0 1 1-3.2-6.9"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-            <path d="M21 4v6h-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </Button>
-      </div>
-
-      <div className="absolute bottom-2 left-2 flex items-center gap-2 rounded-lg border border-[var(--panel-border)] bg-[var(--field)] px-2 py-1 text-[11px] opacity-70">
-        <span>Drag = rotate · Wheel = zoom</span>
-        <span className="opacity-70">View</span>
-        <div className="pointer-events-auto inline-flex overflow-hidden rounded-md border border-[var(--panel-border)] bg-[var(--panel)]">
-          <button
-            type="button"
-            className={cn('h-7 px-2', viewMode === 0 ? 'bg-[var(--field)]' : 'opacity-70 hover:opacity-100')}
-            onClick={() => {
-              viewModeRef.current = 0;
-              setViewMode(0);
-            }}
-          >
-            H
-          </button>
-          <button
-            type="button"
-            className={cn('h-7 px-2', viewMode === 1 ? 'bg-[var(--field)]' : 'opacity-70 hover:opacity-100')}
-            onClick={() => {
-              viewModeRef.current = 1;
-              setViewMode(1);
-            }}
-          >
-            S
-          </button>
-          <button
-            type="button"
-            className={cn('h-7 px-2', viewMode === 2 ? 'bg-[var(--field)]' : 'opacity-70 hover:opacity-100')}
-            onClick={() => {
-              viewModeRef.current = 2;
-              setViewMode(2);
-            }}
-          >
-            F
-          </button>
-          <button
-            type="button"
-            className={cn('h-7 px-2', viewMode === 3 ? 'bg-[var(--field)]' : 'opacity-70 hover:opacity-100')}
-            onClick={() => {
-              viewModeRef.current = 3;
-              setViewMode(3);
-            }}
-          >
-            D
-          </button>
-          <button
-            type="button"
-            className={cn('h-7 px-2', viewMode === 4 ? 'bg-[var(--field)]' : 'opacity-70 hover:opacity-100')}
-            onClick={() => {
-              viewModeRef.current = 4;
-              setViewMode(4);
-            }}
-          >
-            A
-          </button>
-        </div>
-        <span className="opacity-70">({viewMode})</span>
-      </div>
-
-      <div className="absolute bottom-2 right-2 w-[min(560px,92%)] rounded-xl border border-[var(--panel-border)] bg-[var(--panel)] p-3">
-        <div className="mb-2 flex items-center justify-between text-[11px] font-medium opacity-70">
-          <span>Tuning</span>
+        <div className="pointer-events-none absolute right-2 top-2 flex flex-col gap-2">
           <Button
-            className="h-7 w-auto rounded-lg px-2 py-0 text-[11px]"
-            onClick={async () => {
-              // Clear accumulation buffers so new settings show up immediately.
-              const s = webglRef.current;
-              if (s) {
-                const gl = s.gl;
-                const bg = rgbToVec3(colors.bg);
-                for (const fbo of [s.fboA, s.fboB]) {
-                  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-                  gl.viewport(0, 0, s.accumW || 1, s.accumH || 1);
-                  gl.clearColor(bg[0], bg[1], bg[2], 1);
-                  gl.clear(gl.COLOR_BUFFER_BIT);
-                }
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-                s.ping = 0;
-              }
-
-              const sCurrent = webglRef.current;
-              const glCurrent = canvasRef.current?.getContext('webgl');
-              const fr = frameRef.current;
-              const snap: any = {
-                time: new Date().toISOString(),
-                enabled,
-                rendererEffective,
-                webglSupported,
-                glExtensions: glCurrent ? glCurrent.getSupportedExtensions() : null,
-                glRenderer: glCurrent ? glCurrent.getParameter(glCurrent.RENDERER) : null,
-                viewMode: viewModeRef.current,
-                hasFrame: !!fr,
-                accum: sCurrent ? { w: sCurrent.accumW, h: sCurrent.accumH, ping: sCurrent.ping } : null,
-                frame: fr
-                  ? {
-                      w: fr.w,
-                      h: fr.h,
-                      uRef: fr.uRef,
-                      uHi: fr.uHi,
-                      absP95: fr.absP95,
-                      absP99: fr.absP99,
-                      absMax: fr.absMax,
-                      dataMin: Math.min(...Array.from(fr.data).slice(0, 5000)),
-                      dataMax: Math.max(...Array.from(fr.data).slice(0, 5000)),
-                      sourcesNonZero: Array.from(fr.sources).reduce((a, v) => a + (v !== 0 ? 1 : 0), 0),
-                    }
-                  : null,
-                orbit: orbitRef.current,
-                tuning: tuningRef.current,
-              };
-
-              try {
-                await navigator.clipboard.writeText(JSON.stringify(snap, null, 2));
-              } catch {
-                // Fallback if clipboard denied.
-                // eslint-disable-next-line no-alert
-                alert(JSON.stringify(snap, null, 2));
-              }
-            }}
-            aria-label="Copy debug snapshot"
+            className="pointer-events-auto h-9 w-9 rounded-full p-0"
+            onClick={() => setOrbit((o) => ({ ...o, zoom: clamp(o.zoom * 0.92, 0.65, 2.2) }))}
+            aria-label={t('holographic.zoomIn')}
           >
-            Copy debug
+            <span className="text-lg leading-none">+</span>
           </Button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]">
-          <label className="flex items-center justify-between gap-2">
-            <span className="opacity-70">Exposure</span>
-            <input
-              type="range"
-              min={0.25}
-              max={6}
-              step={0.05}
-              value={tuning.exposureBoost}
-              onChange={(e) => _setTuning((t) => ({ ...t, exposureBoost: Number(e.target.value) }))}
-              className="w-40"
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-2">
-            <span className="opacity-70">Threshold</span>
-            <input
-              type="range"
-              min={0.0}
-              max={0.2}
-              step={0.001}
-              value={tuning.thr}
-              onChange={(e) => _setTuning((t) => ({ ...t, thr: Number(e.target.value) }))}
-              className="w-40"
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-2">
-            <span className="opacity-70">Gamma</span>
-            <input
-              type="range"
-              min={0.8}
-              max={3.2}
-              step={0.05}
-              value={tuning.gamma}
-              onChange={(e) => _setTuning((t) => ({ ...t, gamma: Number(e.target.value) }))}
-              className="w-40"
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-2">
-            <span className="opacity-70">k</span>
-            <input
-              type="range"
-              min={4}
-              max={28}
-              step={0.25}
-              value={tuning.k}
-              onChange={(e) => _setTuning((t) => ({ ...t, k: Number(e.target.value) }))}
-              className="w-40"
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-2">
-            <span className="opacity-70">Phase gain</span>
-            <input
-              type="range"
-              min={0}
-              max={16}
-              step={0.1}
-              value={tuning.phaseGain}
-              onChange={(e) => _setTuning((t) => ({ ...t, phaseGain: Number(e.target.value) }))}
-              className="w-40"
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-2">
-            <span className="opacity-70">Grid N</span>
-            <input
-              type="range"
-              min={4}
-              max={16}
-              step={1}
-              value={tuning.gridN}
-              onChange={(e) => _setTuning((t) => ({ ...t, gridN: Number(e.target.value) }))}
-              className="w-40"
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-2">
-            <span className="opacity-70">Feedback stable</span>
-            <input
-              type="range"
-              min={0.8}
-              max={0.995}
-              step={0.001}
-              value={tuning.feedbackStable}
-              onChange={(e) => _setTuning((t) => ({ ...t, feedbackStable: Number(e.target.value) }))}
-              className="w-40"
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-2">
-            <span className="opacity-70">Feedback turb</span>
-            <input
-              type="range"
-              min={0.5}
-              max={0.98}
-              step={0.005}
-              value={tuning.feedbackTurb}
-              onChange={(e) => _setTuning((t) => ({ ...t, feedbackTurb: Number(e.target.value) }))}
-              className="w-40"
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-2">
-            <span className="opacity-70">Delta gain</span>
-            <input
-              type="range"
-              min={0}
-              max={6}
-              step={0.1}
-              value={tuning.deltaGain}
-              onChange={(e) => _setTuning((t) => ({ ...t, deltaGain: Number(e.target.value) }))}
-              className="w-40"
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-2">
-            <span className="opacity-70">Sphere R</span>
-            <input
-              type="range"
-              min={0.8}
-              max={3.5}
-              step={0.05}
-              value={tuning.sphereR}
-              onChange={(e) => _setTuning((t) => ({ ...t, sphereR: Number(e.target.value) }))}
-              className="w-40"
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-2">
-            <span className="opacity-70">Sphere fade</span>
-            <input
-              type="range"
-              min={0.05}
-              max={2.0}
-              step={0.05}
-              value={tuning.sphereFade}
-              onChange={(e) => _setTuning((t) => ({ ...t, sphereFade: Number(e.target.value) }))}
-              className="w-40"
-            />
-          </label>
+          <Button
+            className="pointer-events-auto h-9 w-9 rounded-full p-0"
+            onClick={() => setOrbit((o) => ({ ...o, zoom: clamp(o.zoom * 1.08, 0.65, 2.2) }))}
+            aria-label={t('holographic.zoomOut')}
+          >
+            <span className="text-lg leading-none">-</span>
+          </Button>
+          <Button
+            className="pointer-events-auto h-9 w-9 rounded-full p-0"
+            onClick={() => setOrbit({ yaw: 0.35, pitch: 0.25, zoom: 0.92 })}
+            aria-label={t('holographic.resetView')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+              <path
+                d="M21 12a9 9 0 1 1-3.2-6.9"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <path
+                d="M21 4v6h-6"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </Button>
         </div>
       </div>
 

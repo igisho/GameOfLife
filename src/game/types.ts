@@ -41,4 +41,19 @@ export type GameSettings = {
   lakeNoiseIntensity: number; // 0..1
   lakeBlobSize: number;
   lakeBlobShape: BlobShape;
+
+  // Holographic preview tuning (visualization only)
+  holographicViewMode: 0 | 1 | 2 | 3 | 4;
+  holographicSteps: number;
+  holographicGridN: number;
+  holographicThr: number;
+  holographicGamma: number;
+  holographicK: number;
+  holographicPhaseGain: number;
+  holographicExposureBoost: number;
+  holographicFeedbackStable: number;
+  holographicFeedbackTurb: number;
+  holographicDeltaGain: number;
+  holographicSphereR: number;
+  holographicSphereFade: number;
 };

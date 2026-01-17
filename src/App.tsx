@@ -11,6 +11,7 @@ import { BLINKER, START_L3, START_SHIFTED_2X2 } from './game/patterns';
 import { cn } from './lib/cn';
 import { applyTheme, type ThemeName } from './lib/themes';
 import { useI18n } from './i18n/I18nProvider';
+import Tooltip from './components/ui/Tooltip';
 
 function formatCount(n: number) {
   const v = Math.max(0, Math.floor(Number.isFinite(n) ? n : 0));
@@ -376,17 +377,28 @@ export default function App() {
             aria-hidden="true"
           />
 
-          <div
-            className="relative w-full max-w-[980px] overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
+<div
+             className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-[980px] flex-col overflow-visible rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg"
+             onMouseDown={(e) => e.stopPropagation()}
+           >
              <div className="flex items-center justify-between gap-3 border-b border-[var(--panel-border)] p-4">
                <div className="min-w-0">
                  <div className="text-sm font-semibold">{t('app.medium')}</div>
                </div>
 
-               <div className="flex items-center gap-2">
-                 <div className="inline-flex rounded-full border border-[var(--panel-border)] bg-[var(--field)] p-1">
+                <div className="flex items-center gap-2">
+                  {mediumPreviewTab === 'holographic' ? (
+                    <Tooltip label={t('holographic.header.help')} side="bottom" sideOffset={10}>
+                      <span
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--panel-border)] bg-[var(--field)] text-xs font-semibold opacity-80"
+                        aria-label={t('holographic.header.aria')}
+                      >
+                        i
+                      </span>
+                    </Tooltip>
+                  ) : null}
+
+                  <div className="inline-flex rounded-full border border-[var(--panel-border)] bg-[var(--field)] p-1">
                    <button
                      type="button"
                      className={cn(
@@ -421,28 +433,45 @@ export default function App() {
                </div>
              </div>
  
-             <div className="p-4">
-               <div className="aspect-[16/10] w-full">
-                 {mediumPreviewTab === 'surface' ? (
-                   <MediumLake3DPreview
-                     renderer="webgl"
-                     enabled={game.settings.mediumMode !== 'off'}
-                     frame={mediumPreview}
-                     className="h-full w-full overflow-hidden rounded-xl border border-[var(--panel-border)]"
-                   />
-                 ) : (
-                   <HolographicConway3DPreview
-                     renderer="webgl"
-                     enabled={game.settings.mediumMode !== 'off'}
-                     frame={mediumPreview}
-                     className="h-full w-full overflow-hidden rounded-xl border border-[var(--panel-border)]"
-                   />
-                 )}
-               </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                {mediumPreviewTab === 'surface' ? (
+                  <div className="aspect-[16/10] w-full">
+                    <MediumLake3DPreview
+                      renderer="webgl"
+                      enabled={game.settings.mediumMode !== 'off'}
+                      frame={mediumPreview}
+                      className="h-full w-full overflow-hidden rounded-xl border border-[var(--panel-border)]"
+                    />
+                  </div>
+                ) : (
+                  <HolographicConway3DPreview
+                    renderer="webgl"
+                    enabled={game.settings.mediumMode !== 'off'}
+                    frame={mediumPreview}
+                    className="w-full rounded-xl border border-[var(--panel-border)]"
+                    viewMode={game.settings.holographicViewMode}
+                    orbit={{ yaw: 0.35, pitch: 0.25, zoom: 0.92 }}
+                    tuning={{
+                      steps: game.settings.holographicSteps,
+                      gridN: game.settings.holographicGridN,
+                      thr: game.settings.holographicThr,
+                      gamma: game.settings.holographicGamma,
+                      k: game.settings.holographicK,
+                      phaseGain: game.settings.holographicPhaseGain,
+                      exposureBoost: game.settings.holographicExposureBoost,
+                      feedbackStable: game.settings.holographicFeedbackStable,
+                      feedbackTurb: game.settings.holographicFeedbackTurb,
+                      deltaGain: game.settings.holographicDeltaGain,
+                      sphereR: game.settings.holographicSphereR,
+                      sphereFade: game.settings.holographicSphereFade,
+                    }}
+                    onOrbitChange={() => {}}
+                  />
+                )}
 
 
-              {mediumPreview ? (
-                <div className="mt-3 rounded-xl border border-[var(--panel-border)] bg-[var(--field)] p-3 text-xs">
+               {mediumPreview && mediumPreviewTab === 'surface' ? (
+                 <div className="mt-3 rounded-xl border border-[var(--panel-border)] bg-[var(--field)] p-3 text-xs">
                   <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('medium.legend.title')}</div>
                   <div className="mt-1 tabular-nums opacity-90">
                     {t('medium.legend.body', {

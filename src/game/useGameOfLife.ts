@@ -1,4 +1,4 @@
-import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GameSettings, PaintMode } from './types';
 
 function clamp(x: number, a: number, b: number) {
@@ -51,12 +51,12 @@ export type UseGameOfLifeResult = {
   drawNonce: number;
   resetNonce: number;
   undoCount: number;
-  liveRef: MutableRefObject<Set<number>>;
-  antiLiveRef: MutableRefObject<Set<number>>;
+  liveRef: React.MutableRefObject<Set<number>>;
+  antiLiveRef: React.MutableRefObject<Set<number>>;
   annihilationNonce: number;
-  annihilationRef: MutableRefObject<number[]>;
+  annihilationRef: React.MutableRefObject<number[]>;
 
-  setRunning: (on: boolean) => void;
+  setRunning: (running: boolean) => void;
   toggleRunning: () => void;
   stepOnce: () => void;
   stepPrev: () => void;
@@ -64,7 +64,7 @@ export type UseGameOfLifeResult = {
   clearAll: () => void;
   randomize: () => void;
 
-  paintCell: (r: number, c: number, mode: PaintMode) => void;
+  paintCell: (row: number, col: number, mode: PaintMode) => void;
   nucleateCells: (cells: Array<[number, number]>) => void;
   nucleateAntiCells: (cells: Array<[number, number]>) => void;
 
@@ -85,16 +85,30 @@ export type UseGameOfLifeResult = {
   setMediumStepsPerGeneration: (steps: number) => void;
   setAntiparticlesEnabled: (enabled: boolean) => void;
 
-  setLakeNoiseEnabled: (enabled: boolean) => void;
-
   setMediumMemoryRatePercent: (percent: number) => void;
   setMediumMemoryCoupling: (value: number) => void;
   setMediumNonlinearity: (value: number) => void;
   setMediumAmplitudeLimiter: (value: number) => void;
   setAnnihilationBurstPercent: (percent: number) => void;
+  setLakeNoiseEnabled: (enabled: boolean) => void;
   setLakeNoiseIntensityPercent: (noisePercent: number) => void;
   setLakeBlobSize: (blobSize: number) => void;
   setLakeBlobShape: (shape: GameSettings['lakeBlobShape']) => void;
+
+  // Holographic preview tuning (visualization only)
+  setHolographicViewMode: (mode: GameSettings['holographicViewMode']) => void;
+  setHolographicSteps: (steps: number) => void;
+  setHolographicGridN: (n: number) => void;
+  setHolographicThr: (thr: number) => void;
+  setHolographicGamma: (gamma: number) => void;
+  setHolographicK: (k: number) => void;
+  setHolographicPhaseGain: (gain: number) => void;
+  setHolographicExposureBoost: (boost: number) => void;
+  setHolographicFeedbackStable: (v: number) => void;
+  setHolographicFeedbackTurb: (v: number) => void;
+  setHolographicDeltaGain: (v: number) => void;
+  setHolographicSphereR: (v: number) => void;
+  setHolographicSphereFade: (v: number) => void;
 
   startWithPattern: (pattern: string[]) => void;
 };
@@ -129,6 +143,20 @@ export function useGameOfLife(): UseGameOfLifeResult {
     lakeNoiseIntensity: 0.04,
     lakeBlobSize: 4,
     lakeBlobShape: 'circle',
+
+    holographicViewMode: 0,
+    holographicSteps: 18,
+    holographicGridN: 4,
+    holographicThr: 0.06,
+    holographicGamma: 1.85,
+    holographicK: 13,
+    holographicPhaseGain: 5,
+    holographicExposureBoost: 1,
+    holographicFeedbackStable: 0.965,
+    holographicFeedbackTurb: 0.88,
+    holographicDeltaGain: 1.8,
+    holographicSphereR: 2.1,
+    holographicSphereFade: 2.0,
   });
 
   const settingsRef = useRef(settings);
@@ -470,6 +498,21 @@ export function useGameOfLife(): UseGameOfLifeResult {
 
       lakeNoiseIntensity: clamp(Number(patch.lakeNoiseIntensity ?? prev.lakeNoiseIntensity), 0, 1),
       lakeBlobSize: clamp(Number(patch.lakeBlobSize ?? prev.lakeBlobSize), 1, 20),
+
+      holographicSteps: clamp(Number(patch.holographicSteps ?? prev.holographicSteps), 6, 32),
+      holographicGridN: clamp(Number(patch.holographicGridN ?? prev.holographicGridN), 4, 16),
+      holographicThr: clamp(Number(patch.holographicThr ?? prev.holographicThr), 0, 0.2),
+      holographicGamma: clamp(Number(patch.holographicGamma ?? prev.holographicGamma), 0.8, 3.2),
+      holographicK: clamp(Number(patch.holographicK ?? prev.holographicK), 4, 28),
+      holographicPhaseGain: clamp(Number(patch.holographicPhaseGain ?? prev.holographicPhaseGain), 0, 16),
+      holographicExposureBoost: clamp(Number(patch.holographicExposureBoost ?? prev.holographicExposureBoost), 0.25, 6),
+      holographicFeedbackStable: clamp(Number(patch.holographicFeedbackStable ?? prev.holographicFeedbackStable), 0.8, 0.995),
+      holographicFeedbackTurb: clamp(Number(patch.holographicFeedbackTurb ?? prev.holographicFeedbackTurb), 0.5, 0.98),
+      holographicDeltaGain: clamp(Number(patch.holographicDeltaGain ?? prev.holographicDeltaGain), 0, 6),
+      holographicSphereR: clamp(Number(patch.holographicSphereR ?? prev.holographicSphereR), 0.8, 3.5),
+      holographicSphereFade: clamp(Number(patch.holographicSphereFade ?? prev.holographicSphereFade), 0.05, 2.0),
+
+      holographicViewMode: clamp(Number(patch.holographicViewMode ?? prev.holographicViewMode), 0, 4) as 0 | 1 | 2 | 3 | 4,
     };
 
     const colsChanged = next.cols !== prev.cols;
@@ -569,6 +612,21 @@ export function useGameOfLife(): UseGameOfLifeResult {
       setLakeBlobSize: (blobSize) => updateSettings({ lakeBlobSize: blobSize }),
       setLakeBlobShape: (shape) => updateSettings({ lakeBlobShape: shape }),
 
+      // Holographic preview tuning (visualization only)
+      setHolographicViewMode: (mode) => updateSettings({ holographicViewMode: mode }),
+      setHolographicSteps: (steps) => updateSettings({ holographicSteps: steps }),
+      setHolographicGridN: (n) => updateSettings({ holographicGridN: n }),
+      setHolographicThr: (thr) => updateSettings({ holographicThr: thr }),
+      setHolographicGamma: (gamma) => updateSettings({ holographicGamma: gamma }),
+      setHolographicK: (k) => updateSettings({ holographicK: k }),
+      setHolographicPhaseGain: (gain) => updateSettings({ holographicPhaseGain: gain }),
+      setHolographicExposureBoost: (boost) => updateSettings({ holographicExposureBoost: boost }),
+      setHolographicFeedbackStable: (v) => updateSettings({ holographicFeedbackStable: v }),
+      setHolographicFeedbackTurb: (v) => updateSettings({ holographicFeedbackTurb: v }),
+      setHolographicDeltaGain: (v) => updateSettings({ holographicDeltaGain: v }),
+      setHolographicSphereR: (v) => updateSettings({ holographicSphereR: v }),
+      setHolographicSphereFade: (v) => updateSettings({ holographicSphereFade: v }),
+ 
       startWithPattern,
 
        setMediumMemoryRatePercent: (percent) => updateSettings({ mediumMemoryRate: clamp(percent / 100, 0, 0.3) }),

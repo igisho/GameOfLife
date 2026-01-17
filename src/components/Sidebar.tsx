@@ -179,9 +179,21 @@ type Props = {
   onHide: () => void;
   quickStartOptions: QuickStartOption[];
   onQuickStart: (id: string) => void;
+
+  // Optional holographic preview actions.
+  onHolographicCopyDebug?: () => void;
 };
 
-export default function Sidebar({ game, theme, setTheme, onHide, quickStartOptions, onQuickStart }: Props) {
+export default function Sidebar({
+  game,
+  theme,
+  setTheme,
+  onHide,
+  quickStartOptions,
+  onQuickStart,
+  onHolographicCopyDebug,
+}: Props) {
+  void onHolographicCopyDebug;
   const { t } = useI18n();
   const [infoOpen, setInfoOpen] = useState(false);
 
@@ -316,6 +328,21 @@ export default function Sidebar({ game, theme, setTheme, onHide, quickStartOptio
       nucleationThreshold: between(0.05, minThresholdSafe, 0.05, 1),
     };
   }, [game.settings, nucleationThreshold]);
+
+  const holographicDangerZones = useMemo(() => {
+    const toRanges = (from: number, min: number, max: number) => {
+      if (!Number.isFinite(from) || from >= max) return [] as Array<{ from: number; to: number }>;
+      return [{ from: clamp(from, min, max), to: max }];
+    };
+
+    // Heuristic: warn when cost gets high.
+    const stepsDangerFrom = 24;
+    const gridNDangerFrom = 8;
+    return {
+      steps: toRanges(stepsDangerFrom, 6, 32),
+      gridN: toRanges(gridNDangerFrom, 4, 16),
+    };
+  }, []);
   const mediumStepsPerGeneration = useMemo(
     () => Math.round(game.settings.mediumStepsPerGeneration),
     [game.settings.mediumStepsPerGeneration]
@@ -1062,6 +1089,238 @@ export default function Sidebar({ game, theme, setTheme, onHide, quickStartOptio
           </div>
 
 
+
+          <div className="space-y-2">
+            <SectionTitle>{t('holographic.sidebar.title')}</SectionTitle>
+            <Card>
+              <div className="rounded-xl border border-[var(--danger-border)] bg-[color-mix(in srgb, var(--danger) 10%, var(--panel))] px-3 py-2 text-xs">
+                <span className="font-semibold">{t('holographic.computeHeavy.title')}</span>
+                <span className="opacity-80"> {t('holographic.computeHeavy.body')}</span>
+              </div>
+
+              <div className="mt-3">
+                <HelpRow
+                  label={<div className="text-xs font-medium opacity-90">{t('holographic.view.label')}</div>}
+                  help={t('holographic.view.help')}
+                />
+                <div className="mt-2">
+                  <Select
+                    value={String(game.settings.holographicViewMode)}
+                    onValueChange={(v) => game.setHolographicViewMode(clamp(Number(v), 0, 4) as 0 | 1 | 2 | 3 | 4)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('common.choose')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">{t('holographic.view.hologram')}</SelectItem>
+                      <SelectItem value="1">{t('holographic.view.sources')}</SelectItem>
+                      <SelectItem value="2">{t('holographic.view.field')}</SelectItem>
+                      <SelectItem value="3">{t('holographic.view.delta')}</SelectItem>
+                      <SelectItem value="4">{t('holographic.view.accum')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <HelpRow
+                  label={<div className="text-xs font-medium opacity-90">{t('holographic.tuning.steps.label', { value: game.settings.holographicSteps })}</div>}
+                  help={t('holographic.tuning.steps.help')}
+                />
+                <div className="mt-2">
+                  <Slider
+                    value={[game.settings.holographicSteps]}
+                    min={6}
+                    max={32}
+                    step={1}
+                    dangerRanges={holographicDangerZones.steps}
+                    onValueChange={(v) => game.setHolographicSteps(v[0] ?? game.settings.holographicSteps)}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <HelpRow
+                  label={<div className="text-xs font-medium opacity-90">{t('holographic.tuning.gridN.label', { value: game.settings.holographicGridN })}</div>}
+                  help={t('holographic.tuning.gridN.help')}
+                />
+                <div className="mt-2">
+                  <Slider
+                    value={[game.settings.holographicGridN]}
+                    min={4}
+                    max={16}
+                    step={1}
+                    dangerRanges={holographicDangerZones.gridN}
+                    onValueChange={(v) => game.setHolographicGridN(v[0] ?? game.settings.holographicGridN)}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 border-t border-[var(--panel-border)] pt-3">
+                <div className="text-xs font-semibold uppercase tracking-wide opacity-70">{t('holographic.tuning.title')}</div>
+
+                <div className="mt-3">
+                  <HelpRow
+                    label={<div className="text-xs font-medium opacity-90">{t('holographic.tuning.exposure.label', { value: game.settings.holographicExposureBoost })}</div>}
+                    help={t('holographic.tuning.exposure.help')}
+                  />
+                  <div className="mt-2">
+                    <Slider
+                      value={[game.settings.holographicExposureBoost]}
+                      min={0.25}
+                      max={6}
+                      step={0.05}
+                      onValueChange={(v) => game.setHolographicExposureBoost(v[0] ?? game.settings.holographicExposureBoost)}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <HelpRow
+                    label={<div className="text-xs font-medium opacity-90">{t('holographic.tuning.threshold.label', { value: game.settings.holographicThr })}</div>}
+                    help={t('holographic.tuning.threshold.help')}
+                  />
+                  <div className="mt-2">
+                    <Slider
+                      value={[game.settings.holographicThr]}
+                      min={0.0}
+                      max={0.2}
+                      step={0.001}
+                      onValueChange={(v) => game.setHolographicThr(v[0] ?? game.settings.holographicThr)}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <HelpRow
+                    label={<div className="text-xs font-medium opacity-90">{t('holographic.tuning.gamma.label', { value: game.settings.holographicGamma })}</div>}
+                    help={t('holographic.tuning.gamma.help')}
+                  />
+                  <div className="mt-2">
+                    <Slider
+                      value={[game.settings.holographicGamma]}
+                      min={0.8}
+                      max={3.2}
+                      step={0.05}
+                      onValueChange={(v) => game.setHolographicGamma(v[0] ?? game.settings.holographicGamma)}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <HelpRow
+                    label={<div className="text-xs font-medium opacity-90">{t('holographic.tuning.k.label', { value: game.settings.holographicK })}</div>}
+                    help={t('holographic.tuning.k.help')}
+                  />
+                  <div className="mt-2">
+                    <Slider
+                      value={[game.settings.holographicK]}
+                      min={4}
+                      max={28}
+                      step={0.25}
+                      onValueChange={(v) => game.setHolographicK(v[0] ?? game.settings.holographicK)}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <HelpRow
+                    label={<div className="text-xs font-medium opacity-90">{t('holographic.tuning.phaseGain.label', { value: game.settings.holographicPhaseGain })}</div>}
+                    help={t('holographic.tuning.phaseGain.help')}
+                  />
+                  <div className="mt-2">
+                    <Slider
+                      value={[game.settings.holographicPhaseGain]}
+                      min={0}
+                      max={16}
+                      step={0.1}
+                      onValueChange={(v) => game.setHolographicPhaseGain(v[0] ?? game.settings.holographicPhaseGain)}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <HelpRow
+                    label={<div className="text-xs font-medium opacity-90">{t('holographic.tuning.feedbackStable.label', { value: game.settings.holographicFeedbackStable })}</div>}
+                    help={t('holographic.tuning.feedbackStable.help')}
+                  />
+                  <div className="mt-2">
+                    <Slider
+                      value={[game.settings.holographicFeedbackStable]}
+                      min={0.8}
+                      max={0.995}
+                      step={0.001}
+                      onValueChange={(v) => game.setHolographicFeedbackStable(v[0] ?? game.settings.holographicFeedbackStable)}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <HelpRow
+                    label={<div className="text-xs font-medium opacity-90">{t('holographic.tuning.feedbackTurb.label', { value: game.settings.holographicFeedbackTurb })}</div>}
+                    help={t('holographic.tuning.feedbackTurb.help')}
+                  />
+                  <div className="mt-2">
+                    <Slider
+                      value={[game.settings.holographicFeedbackTurb]}
+                      min={0.5}
+                      max={0.98}
+                      step={0.005}
+                      onValueChange={(v) => game.setHolographicFeedbackTurb(v[0] ?? game.settings.holographicFeedbackTurb)}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <HelpRow
+                    label={<div className="text-xs font-medium opacity-90">{t('holographic.tuning.deltaGain.label', { value: game.settings.holographicDeltaGain })}</div>}
+                    help={t('holographic.tuning.deltaGain.help')}
+                  />
+                  <div className="mt-2">
+                    <Slider
+                      value={[game.settings.holographicDeltaGain]}
+                      min={0}
+                      max={6}
+                      step={0.1}
+                      onValueChange={(v) => game.setHolographicDeltaGain(v[0] ?? game.settings.holographicDeltaGain)}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <HelpRow
+                    label={<div className="text-xs font-medium opacity-90">{t('holographic.tuning.sphereR.label', { value: game.settings.holographicSphereR })}</div>}
+                    help={t('holographic.tuning.sphereR.help')}
+                  />
+                  <div className="mt-2">
+                    <Slider
+                      value={[game.settings.holographicSphereR]}
+                      min={0.8}
+                      max={3.5}
+                      step={0.05}
+                      onValueChange={(v) => game.setHolographicSphereR(v[0] ?? game.settings.holographicSphereR)}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <HelpRow
+                    label={<div className="text-xs font-medium opacity-90">{t('holographic.tuning.sphereFade.label', { value: game.settings.holographicSphereFade })}</div>}
+                    help={t('holographic.tuning.sphereFade.help')}
+                  />
+                  <div className="mt-2">
+                    <Slider
+                      value={[game.settings.holographicSphereFade]}
+                      min={0.05}
+                      max={2.0}
+                      step={0.05}
+                      onValueChange={(v) => game.setHolographicSphereFade(v[0] ?? game.settings.holographicSphereFade)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
 
           <div className="space-y-2">
              <SectionTitle>{t('fluctuations.title')}</SectionTitle>
