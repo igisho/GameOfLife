@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom';
 import LifeCanvas, { type MediumPreviewFrame } from './components/LifeCanvas';
 import MediumLake3DPreview from './components/MediumLake3DPreview';
+import HolographicConway3DPreview from './components/HolographicConway3DPreview';
 import Sidebar from './components/Sidebar';
 import StartOverlay from './components/StartOverlay';
 import Button from './components/ui/Button';
@@ -97,6 +98,7 @@ export default function App() {
   const [mediumAvg, setMediumAvg] = useState(0);
   const [mediumPreview, setMediumPreview] = useState<MediumPreviewFrame | null>(null);
   const [mediumPreviewOpen, setMediumPreviewOpen] = useState(false);
+  const [mediumPreviewTab, setMediumPreviewTab] = useState<'surface' | 'holographic'>('surface');
 
   const [liveSeries, setLiveSeries] = useState<number[]>(() => Array.from({ length: 64 }, () => 0));
   const [antiSeries, setAntiSeries] = useState<number[]>(() => Array.from({ length: 64 }, () => 0));
@@ -189,11 +191,15 @@ export default function App() {
   }, [game, startOverlayOpen]);
 
   useEffect(() => {
-    if (!mediumPreviewOpen) return;
-    if (game.settings.mediumMode === 'off') {
-      setMediumPreviewOpen(false);
-      return;
-    }
+     if (!mediumPreviewOpen) return;
+     if (game.settings.mediumMode === 'off') {
+       setMediumPreviewOpen(false);
+       return;
+     }
+
+     // Keep the default tab consistent.
+     setMediumPreviewTab('surface');
+
 
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -374,30 +380,66 @@ export default function App() {
             className="relative w-full max-w-[980px] overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--panel)] shadow-lg"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-3 border-b border-[var(--panel-border)] p-4">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold">{t('app.medium')}</div>
-              </div>
-              <Button
-                className="h-9 w-9 rounded-full p-0"
-                onClick={() => setMediumPreviewOpen(false)}
-                aria-label={t('common.close')}
-              >
-                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
-                  <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </Button>
-            </div>
+             <div className="flex items-center justify-between gap-3 border-b border-[var(--panel-border)] p-4">
+               <div className="min-w-0">
+                 <div className="text-sm font-semibold">{t('app.medium')}</div>
+               </div>
 
-            <div className="p-4">
-              <div className="aspect-[16/10] w-full">
-                <MediumLake3DPreview
-                  renderer="webgl"
-                  enabled={game.settings.mediumMode !== 'off'}
-                  frame={mediumPreview}
-                  className="h-full w-full overflow-hidden rounded-xl border border-[var(--panel-border)]"
-                />
-              </div>
+               <div className="flex items-center gap-2">
+                 <div className="inline-flex rounded-full border border-[var(--panel-border)] bg-[var(--field)] p-1">
+                   <button
+                     type="button"
+                     className={cn(
+                       'h-8 rounded-full px-3 text-xs font-medium transition-colors',
+                       mediumPreviewTab === 'surface' ? 'bg-[var(--panel)]' : 'opacity-70 hover:opacity-100'
+                     )}
+                     onClick={() => setMediumPreviewTab('surface')}
+                   >
+                     {t('app.mediumPreview.tab.surface')}
+                   </button>
+                   <button
+                     type="button"
+                     className={cn(
+                       'h-8 rounded-full px-3 text-xs font-medium transition-colors',
+                       mediumPreviewTab === 'holographic' ? 'bg-[var(--panel)]' : 'opacity-70 hover:opacity-100'
+                     )}
+                     onClick={() => setMediumPreviewTab('holographic')}
+                   >
+                     {t('app.mediumPreview.tab.holographic')}
+                   </button>
+                 </div>
+
+                 <Button
+                   className="h-9 w-9 rounded-full p-0"
+                   onClick={() => setMediumPreviewOpen(false)}
+                   aria-label={t('common.close')}
+                 >
+                   <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                     <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                   </svg>
+                 </Button>
+               </div>
+             </div>
+ 
+             <div className="p-4">
+               <div className="aspect-[16/10] w-full">
+                 {mediumPreviewTab === 'surface' ? (
+                   <MediumLake3DPreview
+                     renderer="webgl"
+                     enabled={game.settings.mediumMode !== 'off'}
+                     frame={mediumPreview}
+                     className="h-full w-full overflow-hidden rounded-xl border border-[var(--panel-border)]"
+                   />
+                 ) : (
+                   <HolographicConway3DPreview
+                     renderer="webgl"
+                     enabled={game.settings.mediumMode !== 'off'}
+                     frame={mediumPreview}
+                     className="h-full w-full overflow-hidden rounded-xl border border-[var(--panel-border)]"
+                   />
+                 )}
+               </div>
+
 
               {mediumPreview ? (
                 <div className="mt-3 rounded-xl border border-[var(--panel-border)] bg-[var(--field)] p-3 text-xs">
@@ -528,7 +570,7 @@ export default function App() {
                         type="button"
                         className="pointer-events-auto absolute right-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--panel-border)] bg-[var(--field)] text-[var(--text)] opacity-80 shadow-sm transition-opacity hover:opacity-100"
                         onClick={() => setMediumPreviewOpen(true)}
-                        aria-label="Expand 3D preview"
+                        aria-label={t('app.mediumPreview.expand')}
                       >
                         <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
                           <path d="M9 3H3v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

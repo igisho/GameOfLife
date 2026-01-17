@@ -6,7 +6,11 @@ import type { GameSettings, PaintMode } from '../game/types';
 export type MediumPreviewFrame = {
   w: number;
   h: number;
+  // Medium visual field (signed). Used for amplitude/energy.
   data: Float32Array;
+  // Downsampled Conway sources (matter/antimatter) on the same grid.
+  // -1 = live cell (matter), +1 = anti-cell (antimatter), 0 = empty.
+  sources: Int8Array;
 
   // Visualization scale (|u| units).
   uRef: number;
@@ -628,18 +632,44 @@ export default function LifeCanvas({
     }
 
     if (onMediumPreviewRef.current) {
-      const targetW = 40;
-      const targetH = 40;
+      const targetW = 96;
+      const targetH = 96;
       const out = new Float32Array(targetW * targetH);
+      const sources = new Int8Array(targetW * targetH);
 
       const srcW = state.w;
       const srcH = state.h;
+
+      // Build sources from actual Conway occupancy (not the blurred medium source map).
+      // Map each live/anti cell into the preview grid.
+      // -1 = matter (live), +1 = antimatter (anti)
+      const mark = (r: number, c: number, v: -1 | 1) => {
+        const x = Math.floor((c / (settings.cols - 1)) * (targetW - 1));
+        const y = Math.floor((r / (settings.rows - 1)) * (targetH - 1));
+        if (x < 0 || x >= targetW || y < 0 || y >= targetH) return;
+        const i = y * targetW + x;
+        // If both types map into one pixel, treat it as neutral (0).
+        const prev = sources[i] ?? 0;
+        sources[i] = prev !== 0 && prev !== v ? 0 : v;
+      };
+
+      for (const k of liveRef.current) {
+        const [r, c] = keyToRc(settings.cols, k);
+        mark(r, c, -1);
+      }
+      if (settings.antiparticlesEnabled) {
+        for (const k of antiLiveRef.current) {
+          const [r, c] = keyToRc(settings.cols, k);
+          mark(r, c, 1);
+        }
+      }
 
       for (let y = 0; y < targetH; y++) {
         const sy = Math.floor((y / (targetH - 1)) * (srcH - 1));
         for (let x = 0; x < targetW; x++) {
           const sx = Math.floor((x / (targetW - 1)) * (srcW - 1));
-          out[y * targetW + x] = state.uVis[sy * srcW + sx] ?? 0;
+          const i = y * targetW + x;
+          out[i] = state.uVis[sy * srcW + sx] ?? 0;
         }
       }
 
@@ -647,6 +677,7 @@ export default function LifeCanvas({
         w: targetW,
         h: targetH,
         data: out,
+        sources,
         uRef: state.uRef,
         uHi: state.uHi,
         absP95: state.absP95,
