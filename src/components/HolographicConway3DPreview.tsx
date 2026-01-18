@@ -1557,23 +1557,23 @@ export default function HolographicConway3DPreview({
       />
 
       {rendererEffective === 'webgl' && viewMode === 0 ? (
-        <div className="pointer-events-none absolute bottom-2 right-2 flex flex-col gap-2">
+        <div className="pointer-events-none absolute bottom-4 right-4 flex flex-col gap-2">
           <Button
-            className="pointer-events-auto h-9 w-9 rounded-full p-0"
+            className="pointer-events-auto h-10 w-10 rounded-full p-0"
             onClick={() => setOrbit((o) => ({ ...o, zoom: clamp(o.zoom * 0.92, 0.65, 2.2) }))}
             aria-label={t('holographic.zoomIn')}
           >
             <span className="text-lg leading-none">+</span>
           </Button>
           <Button
-            className="pointer-events-auto h-9 w-9 rounded-full p-0"
+            className="pointer-events-auto h-10 w-10 rounded-full p-0"
             onClick={() => setOrbit((o) => ({ ...o, zoom: clamp(o.zoom * 1.08, 0.65, 2.2) }))}
             aria-label={t('holographic.zoomOut')}
           >
             <span className="text-lg leading-none">-</span>
           </Button>
           <Button
-            className="pointer-events-auto h-9 w-9 rounded-full p-0"
+            className="pointer-events-auto h-10 w-10 rounded-full p-0"
             onClick={() => setOrbit({ yaw: 0.35, pitch: 0.25, zoom: 0.92 })}
             aria-label={t('holographic.resetView')}
           >

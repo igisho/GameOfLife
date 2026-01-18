@@ -88,6 +88,10 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [startOverlayOpen, setStartOverlayOpen] = useState(true);
 
+  const [isMobile, setIsMobile] = useState(false);
+  const [cornerHudCollapsed, setCornerHudCollapsed] = useState(false);
+  const [cornerHudInteracted, setCornerHudInteracted] = useState(false);
+
   const canvasScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [mediumAvg, setMediumAvg] = useState(0);
@@ -156,6 +160,38 @@ export default function App() {
   useLayoutEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)');
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+
+    // Safari: addListener/removeListener fallback.
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', sync);
+      return () => mq.removeEventListener('change', sync);
+    }
+
+    mq.addListener(sync);
+    return () => mq.removeListener(sync);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setCornerHudCollapsed(false);
+      return;
+    }
+
+    if (startOverlayOpen) return;
+    if (sidebarOpen) return;
+    if (cornerHudInteracted) return;
+
+    const t = window.setTimeout(() => {
+      setCornerHudCollapsed(true);
+    }, 4000);
+
+    return () => window.clearTimeout(t);
+  }, [cornerHudInteracted, isMobile, sidebarOpen, startOverlayOpen]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -330,28 +366,8 @@ export default function App() {
 
   return (
     <div className="relative h-full min-h-0 p-4">
-      {mediumPreviewModal}
-       {!sidebarOpen && !startOverlayOpen ? (
+       {mediumPreviewModal}
 
-        <div className="absolute left-6 top-6 z-40">
-          <Button
-            className="h-10 w-10 rounded-full p-0"
-            onClick={() => setSidebarOpen(true)}
-            aria-label={t('app.openMenu')}
-            aria-expanded={false}
-            aria-controls="sidebar-drawer"
-          >
-            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
-              <path
-                d="M4 7H20M4 12H20M4 17H20"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </Button>
-        </div>
-      ) : null}
 
        {sidebarOpen ? (
          <button
@@ -393,26 +409,42 @@ export default function App() {
          <main className={cn('h-full min-h-0 min-w-0 flex-1', sidebarOpen ? 'hidden md:block' : '')}>
 
             <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--panel-border)] bg-[var(--canvas)] shadow-lg [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)]">
-               <div className="pointer-events-none absolute bottom-4 left-4 z-10">
+                {!sidebarOpen && !startOverlayOpen ? (
+                  <div className="absolute left-4 top-4 z-40">
+                    <Button
+                      className="h-10 w-10 rounded-full p-0"
+                      onClick={() => setSidebarOpen(true)}
+                      aria-label={t('app.openMenu')}
+                      aria-expanded={false}
+                      aria-controls="sidebar-drawer"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                        <path d="M4 7H20M4 12H20M4 17H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    </Button>
+                  </div>
+                ) : null}
+
+                <div className="pointer-events-none absolute bottom-4 left-4 z-10">
                  <span className="inline-flex rounded-full border border-[var(--pill-border)] bg-[var(--field)] px-2 py-1 text-xs font-medium opacity-90">
                     {game.running ? t('app.status.running') : t('app.status.paused')}
                  </span>
                </div>
 
                {!sidebarOpen && !startOverlayOpen ? (
-                 <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2">
+                   <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2">
                    <Button
-                     className="h-12 w-12 rounded-full border border-[var(--pill-border)] p-0 text-white shadow-lg hover:bg-black/50 [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)]"
+                      className="h-10 w-10 rounded-full border border-[var(--pill-border)] p-0 text-white shadow-lg hover:bg-black/50 [--tw-shadow-color:var(--shadow-color)] [--tw-shadow:var(--tw-shadow-colored)]"
                      style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 82%, transparent)' }}
                      onClick={() => game.toggleRunning()}
                       aria-label={game.running ? t('app.pause') : t('app.play')}
                    >
-                     {game.running ? (
-                       <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden="true">
+                      {game.running ? (
+                        <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
                          <path d="M7 6h3v12H7V6zm7 0h3v12h-3V6z" fill="currentColor" />
                        </svg>
-                     ) : (
-                       <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden="true">
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
                          <path d="M8 5v14l12-7L8 5z" fill="currentColor" />
                        </svg>
                      )}
@@ -421,159 +453,251 @@ export default function App() {
                ) : null}
 
 
-               <div className="pointer-events-none absolute right-4 top-4 space-y-2" style={{ zIndex: 49 }}>
-                 <div
-                   className="pointer-events-auto w-[220px] overflow-visible rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
-                   style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
-                 >
-                   <div className="mb-2 flex items-center justify-between gap-2">
-                     <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('app.view.label')}</div>
-                     <div className="tabular-nums text-[11px] opacity-60">{mainView === 'grid' ? '' : t('app.view.mediumBadge')}</div>
-                   </div>
+                 <div className="pointer-events-none absolute right-4 top-4" style={{ zIndex: 49 }}>
+                  {isMobile && !startOverlayOpen ? (
+                    <div className="mb-2 flex justify-end">
+                      {cornerHudCollapsed ? (
+                        <Button
+                          className="pointer-events-auto h-10 w-10 rounded-full p-0"
+                          onClick={() => {
+                            setCornerHudInteracted(true);
+                            setCornerHudCollapsed(false);
+                          }}
+                          aria-label={t('app.hud.open')}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                            <path
+                              d="M4 6h8M4 18h8M4 12h16"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                            <path
+                              d="M16 4v4M12 10v4M20 16v4"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </Button>
+                      ) : (
+                        <Button
+                          className="pointer-events-auto h-10 w-10 rounded-full p-0"
+                          onClick={() => {
+                            setCornerHudInteracted(true);
+                            setCornerHudCollapsed(true);
+                          }}
+                          aria-label={t('app.hud.collapse')}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
+                            <path
+                              d="M6 15l6-6 6 6"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </Button>
+                      )}
+                    </div>
+                  ) : null}
 
-                   <Select value={mainView} onValueChange={(v) => setMainView(v as MainView)}>
-                     <SelectTrigger className="h-9">
-                       <SelectValue placeholder={t('common.choose')} />
-                     </SelectTrigger>
-                     <SelectContent>
-                       <SelectItem value="grid">{t('app.view.grid')}</SelectItem>
-                       <SelectItem value="medium_surface" disabled={game.settings.mediumMode === 'off'}>
-                         {t('app.view.surface')}
-                       </SelectItem>
-                       <SelectItem value="holo_0" disabled={game.settings.mediumMode === 'off'}>
-                         {t('app.view.hologram')}
-                       </SelectItem>
-                       <SelectItem value="holo_1" disabled={game.settings.mediumMode === 'off'}>
-                         {t('app.view.holoSources')}
-                       </SelectItem>
-                       <SelectItem value="holo_2" disabled={game.settings.mediumMode === 'off'}>
-                         {t('app.view.holoField')}
-                       </SelectItem>
-                       <SelectItem value="holo_3" disabled={game.settings.mediumMode === 'off'}>
-                         {t('app.view.holoDelta')}
-                       </SelectItem>
-                       <SelectItem value="holo_4" disabled={game.settings.mediumMode === 'off'}>
-                         {t('app.view.holoAccum')}
-                       </SelectItem>
-                     </SelectContent>
-                   </Select>
-                 </div>
+                  <div
+                    onPointerDownCapture={() => {
+                      if (!cornerHudInteracted) setCornerHudInteracted(true);
+                    }}
+                    className={cn(
+                      'grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out motion-reduce:transition-none',
+                      isMobile && cornerHudCollapsed
+                        ? 'pointer-events-none grid-rows-[0fr] opacity-0 -translate-y-1 scale-[0.98]'
+                        : 'pointer-events-auto grid-rows-[1fr] opacity-100 translate-y-0 scale-100'
+                    )}
+                  >
+                    <div className="min-h-0 overflow-hidden">
+                      <div className="space-y-2">
+                        <div
+                          className="pointer-events-auto w-[220px] overflow-visible rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
+                          style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
+                        >
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('app.view.label')}</div>
+                            <div className="tabular-nums text-[11px] opacity-60">{mainView === 'grid' ? '' : t('app.view.mediumBadge')}</div>
+                          </div>
 
-                 <div
-                  className="w-[220px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
-                  style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
-                >
-                  <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('app.medium')}</div>
-                  <div className="relative mt-2">
-                    <MediumLake3DPreview
-                      enabled={game.settings.mediumMode !== 'off'}
-                      frame={mediumPreview}
-                      className="block h-[92px] w-full overflow-hidden rounded-md"
-                    />
-                    {game.settings.mediumMode !== 'off' ? (
-                       <button
-                         type="button"
-                         className="pointer-events-auto absolute right-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--panel-border)] bg-[var(--field)] text-[var(--text)] opacity-80 shadow-sm transition-opacity hover:opacity-100"
-                         onClick={() => {
-                           // Toggle between grid and a medium view.
-                           if (mainView === 'grid') setMainView('medium_surface');
-                           else setMainView('grid');
-                         }}
-                         aria-label={t('app.view.toggle')}
-                       >
-                        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
-                          <path d="M9 3H3v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M3 3l7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                          <path d="M15 21h6v-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M21 21l-7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        </svg>
-                      </button>
-                    ) : null}
+                          <Select value={mainView} onValueChange={(v) => setMainView(v as MainView)}>
+                            <SelectTrigger className="h-9">
+                              <SelectValue placeholder={t('common.choose')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="grid">{t('app.view.grid')}</SelectItem>
+                              <SelectItem value="medium_surface" disabled={game.settings.mediumMode === 'off'}>
+                                {t('app.view.surface')}
+                              </SelectItem>
+                              <SelectItem value="holo_0" disabled={game.settings.mediumMode === 'off'}>
+                                {t('app.view.hologram')}
+                              </SelectItem>
+                              <SelectItem value="holo_1" disabled={game.settings.mediumMode === 'off'}>
+                                {t('app.view.holoSources')}
+                              </SelectItem>
+                              <SelectItem value="holo_2" disabled={game.settings.mediumMode === 'off'}>
+                                {t('app.view.holoField')}
+                              </SelectItem>
+                              <SelectItem value="holo_3" disabled={game.settings.mediumMode === 'off'}>
+                                {t('app.view.holoDelta')}
+                              </SelectItem>
+                              <SelectItem value="holo_4" disabled={game.settings.mediumMode === 'off'}>
+                                {t('app.view.holoAccum')}
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div
+                          className="w-[220px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
+                          style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
+                        >
+                          <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('app.medium')}</div>
+                          <div className="relative mt-2">
+                            <MediumLake3DPreview
+                              enabled={game.settings.mediumMode !== 'off'}
+                              frame={mediumPreview}
+                              className="block h-[92px] w-full overflow-hidden rounded-md"
+                            />
+                            {game.settings.mediumMode !== 'off' ? (
+                              <button
+                                type="button"
+                                className="pointer-events-auto absolute right-1 top-1 inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--panel-border)] bg-[var(--field)] text-[var(--text)] opacity-80 shadow-sm transition-opacity hover:opacity-100"
+                                onClick={() => {
+                                  setCornerHudInteracted(true);
+                                  // Toggle between grid and a medium view.
+                                  if (mainView === 'grid') setMainView('medium_surface');
+                                  else setMainView('grid');
+                                }}
+                                aria-label={t('app.view.toggle')}
+                              >
+                                <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+                                  <path
+                                    d="M9 3H3v6"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                  <path d="M3 3l7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                  <path
+                                    d="M15 21h6v-6"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                  <path d="M21 21l-7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                </svg>
+                              </button>
+                            ) : null}
+                          </div>
+
+                          <div className="mt-1 flex items-center justify-between gap-2 tabular-nums opacity-90">
+                            <div className="flex min-w-0 flex-1 items-center gap-1">
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="h-3.5 w-3.5 shrink-0 opacity-80"
+                                aria-label={t('app.generation')}
+                              >
+                                <title>{t('app.generation')}</title>
+                                <path
+                                  d="M21 12a9 9 0 1 1-3.2-6.9"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                />
+                                <path
+                                  d="M21 4v6h-6"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                              <span className="w-[52px] text-right">{formatCount(game.generation)}</span>
+                            </div>
+
+                            <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="h-3.5 w-3.5 shrink-0 opacity-80"
+                                aria-label={t('app.mediumAvgAmplitude')}
+                              >
+                                <title>{t('app.mediumAvgAmplitude')}</title>
+                                <path
+                                  d="M2 12c3 0 3-6 6-6s3 12 6 12 3-6 6-6"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                              <span className="w-[52px] text-right">{formatSigned(mediumAvg)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+
+                        <div
+                          className="w-[220px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
+                          style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
+                        >
+                          <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('app.cellCounts')}</div>
+
+                          <div className="mt-2 space-y-2 tabular-nums">
+                            <div className="flex items-center justify-between gap-2">
+                              <svg viewBox="0 0 120 22" width={120} height={22} className="block" aria-hidden="true">
+                                <line x1={0} y1={21} x2={120} y2={21} stroke="var(--grid)" strokeWidth={1} opacity={0.35} />
+                                <polyline
+                                  points={livePoints}
+                                  fill="none"
+                                  stroke="var(--cell)"
+                                  strokeWidth={1.6}
+                                  strokeLinejoin="round"
+                                  strokeLinecap="round"
+                                  opacity={0.95}
+                                />
+                              </svg>
+                              <span className="w-[52px] text-right" title={t('app.liveCellsTitle')}>
+                                {formatCount(liveNow)}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2">
+                              <svg viewBox="0 0 120 22" width={120} height={22} className="block" aria-hidden="true">
+                                <line x1={0} y1={21} x2={120} y2={21} stroke="var(--grid)" strokeWidth={1} opacity={0.35} />
+                                <polyline
+                                  points={antiPoints}
+                                  fill="none"
+                                  stroke="var(--anti-cell)"
+                                  strokeWidth={1.6}
+                                  strokeLinejoin="round"
+                                  strokeLinecap="round"
+                                  opacity={0.95}
+                                />
+                              </svg>
+                              <span className="w-[52px] text-right" title={t('app.antiCellsTitle')}>
+                                {formatCount(antiNow)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
+                </div>
 
-                 <div className="mt-1 flex items-center justify-between gap-2 tabular-nums opacity-90">
-                   <div className="flex min-w-0 flex-1 items-center gap-1">
-                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 opacity-80" aria-label={t('app.generation')}>
-                        <title>{t('app.generation')}</title>
-                       <path
-                         d="M21 12a9 9 0 1 1-3.2-6.9"
-                         fill="none"
-                         stroke="currentColor"
-                         strokeWidth="2"
-                         strokeLinecap="round"
-                       />
-                       <path
-                         d="M21 4v6h-6"
-                         fill="none"
-                         stroke="currentColor"
-                         strokeWidth="2"
-                         strokeLinecap="round"
-                         strokeLinejoin="round"
-                       />
-                     </svg>
-                     <span className="w-[52px] text-right">{formatCount(game.generation)}</span>
-                   </div>
- 
-                   <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
-                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 opacity-80" aria-label={t('app.mediumAvgAmplitude')}>
-                        <title>{t('app.mediumAvgAmplitude')}</title>
-                       <path
-                         d="M2 12c3 0 3-6 6-6s3 12 6 12 3-6 6-6"
-                         fill="none"
-                         stroke="currentColor"
-                         strokeWidth="2"
-                         strokeLinecap="round"
-                         strokeLinejoin="round"
-                       />
-                     </svg>
-                     <span className="w-[52px] text-right">{formatSigned(mediumAvg)}</span>
-                   </div>
-                 </div>
-               </div>
 
-               <div
-                 className="w-[220px] overflow-hidden rounded-xl border border-[var(--panel-border)] px-3 py-2 text-xs font-medium"
-                 style={{ backgroundColor: 'color-mix(in srgb, var(--panel) 88%, transparent)' }}
-               >
-                  <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{t('app.cellCounts')}</div>
-
-                 <div className="mt-2 space-y-2 tabular-nums">
-                   <div className="flex items-center justify-between gap-2">
-                     <svg viewBox="0 0 120 22" width={120} height={22} className="block" aria-hidden="true">
-                       <line x1={0} y1={21} x2={120} y2={21} stroke="var(--grid)" strokeWidth={1} opacity={0.35} />
-                       <polyline
-                         points={livePoints}
-                         fill="none"
-                         stroke="var(--cell)"
-                         strokeWidth={1.6}
-                         strokeLinejoin="round"
-                         strokeLinecap="round"
-                         opacity={0.95}
-                       />
-                     </svg>
-                      <span className="w-[52px] text-right" title={t('app.liveCellsTitle')}>{formatCount(liveNow)}</span>
-                   </div>
-
-                   <div className="flex items-center justify-between gap-2">
-                     <svg viewBox="0 0 120 22" width={120} height={22} className="block" aria-hidden="true">
-                       <line x1={0} y1={21} x2={120} y2={21} stroke="var(--grid)" strokeWidth={1} opacity={0.35} />
-                       <polyline
-                         points={antiPoints}
-                         fill="none"
-                         stroke="var(--anti-cell)"
-                         strokeWidth={1.6}
-                         strokeLinejoin="round"
-                         strokeLinecap="round"
-                         opacity={0.95}
-                       />
-                     </svg>
-                      <span className="w-[52px] text-right" title={t('app.antiCellsTitle')}>{formatCount(antiNow)}</span>
-                   </div>
-                 </div>
-               </div>
-             </div>
-
-              <div ref={canvasScrollRef} className={cn('h-full', mainView === 'grid' ? 'overflow-auto' : 'overflow-hidden')}>
+               <div ref={canvasScrollRef} className={cn('h-full', mainView === 'grid' ? 'overflow-auto' : 'overflow-hidden')}>
                 {/* Keep LifeCanvas mounted so mediumPreview continues updating even when grid is hidden. */}
                 <div className={mainView === 'grid' ? 'block h-full' : 'hidden'}>
                   <LifeCanvas

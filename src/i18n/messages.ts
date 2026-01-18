@@ -39,6 +39,8 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     'app.openMenu': 'Open menu',
     'app.closeMenu': 'Close menu',
+    'app.hud.open': 'Open tools',
+    'app.hud.collapse': 'Collapse tools',
     'app.status.running': 'Running',
     'app.status.paused': 'Paused',
     'app.play': 'Play',
@@ -328,6 +330,8 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     'app.openMenu': 'Otvoriť menu',
     'app.closeMenu': 'Zavrieť menu',
+    'app.hud.open': 'Otvoriť nástroje',
+    'app.hud.collapse': 'Zrolovať nástroje',
     'app.status.running': 'Beží',
     'app.status.paused': 'Pauza',
     'app.play': 'Play',
@@ -606,6 +610,8 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     'app.openMenu': 'Menü öffnen',
     'app.closeMenu': 'Menü schließen',
+    'app.hud.open': 'Werkzeuge öffnen',
+    'app.hud.collapse': 'Werkzeuge einklappen',
     'app.status.running': 'Läuft',
     'app.status.paused': 'Pausiert',
     'app.play': 'Start',
@@ -877,6 +883,8 @@ export const MESSAGES: Record<Locale, Messages> = {
 
     'app.openMenu': 'Ouvrir le menu',
     'app.closeMenu': 'Fermer le menu',
+    'app.hud.open': 'Ouvrir les outils',
+    'app.hud.collapse': 'Replier les outils',
     'app.status.running': 'En cours',
     'app.status.paused': 'En pause',
     'app.play': 'Lecture',
